@@ -216,13 +216,13 @@ namespace Qjs {
             return Class::New(ctx, new Conversion {f});
         }
 
-        static TFun Unwrap(Value value) {
+        static JsResult<TFun> Unwrap(Value value) {
             Class::RegisterClass(value.ctx, "Function", Invoke);
 
             if (JS_GetClassID(value) == Class::GetClassId(value.ctx.rt))
                 return Class::Get(value)->fun;
 
-            return [&](TArgs ...args) -> TReturn {
+            return (TFun) [&](TArgs ...args) -> TReturn {
                 return value.ToFunction<TReturn, TArgs...>()(args...).GetOk();
             };
         }
