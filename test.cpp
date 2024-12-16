@@ -5,12 +5,9 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include <vector>
 
 #define JS_SOURCE(...) #__VA_ARGS__
-
-int add(int a, int b) {
-    return a + b;
-}
 
 struct Test : public Qjs::Class {
     int x;
@@ -25,19 +22,28 @@ struct Test : public Qjs::Class {
 
 char const Src[] = JS_SOURCE(
     const test = new Test(2, 2.5);
-    print(test.x);
+    log(test.x, test.y);
     test.x += 1;
-    print(test.x);
+    log(test.x, test.y);
     test.wawa("wawa");
-    testFun(test);
+    testFun([test, test, test, test]);
 );
 
-void Print(std::string str) {
-    std::println(std::cout, "{}", str);
+Qjs::Value Log(Qjs::Value thisVal, std::vector<Qjs::Value> &args) {
+    for (size_t i = 0; i < args.size(); i++) {
+        auto strRes = args[i].ToString();
+        if (!strRes.IsOk())
+            return strRes.GetErr();
+
+        std::print(std::cout, "{}\t", strRes.GetOk());
+    }
+    std::println(std::cout);
+
+    return Qjs::Value::Undefined(thisVal.ctx);
 }
 
-void TestFun(Test t) {
-    std::println(std::cout, "wawa");
+void TestFun(std::vector<Test *> t) {
+    std::println(std::cout, "{}", t.size());
 }
 
 int main(int argc, char **argv) {
@@ -46,7 +52,7 @@ int main(int argc, char **argv) {
 
     auto global = Qjs::Value::Global(ctx);
 
-    global["print"] = Qjs::Value::Function<Print>(ctx, "print");
+    global["log"] = Qjs::Value::RawFunction<Log>(ctx, "log");
 
     Qjs::ClassBuilder<Test>(ctx, "Test")
         .Ctor<int, float>()

@@ -7,12 +7,14 @@
 #include "value_fwd.hpp"
 
 #include "conversion_fwd.hpp"
+#include <cstddef>
 #include <expected>
 #include <functional>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace Qjs {
     template <typename TInt>
@@ -169,7 +171,7 @@ namespace Qjs {
             return Wrapper::New(ctx, cl);
         }
 
-        static T *Unwrap(Value value) {
+        static JsResult<T *> Unwrap(Value value) {
             T *out = Wrapper::Get(value);;
             out->jsThis = value;
             return out;
@@ -187,10 +189,82 @@ namespace Qjs {
             return Wrapper::New(ctx, new T(cl));
         }
 
-        static T Unwrap(Value value) {
+        static JsResult<T> Unwrap(Value value) {
             T *out = Wrapper::Get(value);;
             out->jsThis = value;
             return *out;
+        }
+    };
+
+    template <typename T>
+        requires Conversion<T>::Implemented
+    struct Conversion<std::vector<T>> final {
+        static constexpr bool Implemented = true;
+
+        static Value Wrap(Context &ctx, std::vector<T> const &vec) {
+            Value arr = Value::Array(ctx);
+            for (size_t i = 0; i < vec.size(); i++)
+                arr[i] = Value::From(ctx, vec[i]);
+            return arr;
+        }
+
+        static JsResult<std::vector<T>> Unwrap(Value value) {
+            auto lenRes = (*value["length"]).As<size_t>();
+            if (!lenRes.IsOk())
+                return lenRes.GetErr();
+
+            size_t len = lenRes.GetOk();
+
+            std::vector<T> out {};
+            out.resize(len);
+
+            for (size_t i = 0; i < len; i++) {
+                auto res = (*value[i]).As<T>();
+                if (!res.IsOk())
+                    return res.GetErr();
+                out[i] = res.GetOk();
+            }
+
+            return out;
+        }
+    };
+
+    template <typename T, size_t TLen>
+        requires Conversion<T>::Implemented
+    struct Conversion<std::array<T, TLen>> final {
+        static constexpr bool Implemented = true;
+
+        static Value Wrap(Context &ctx, std::array<T, TLen> const &vec) {
+            Value arr = Value::Array(ctx);
+            for (size_t i = 0; i < vec.size(); i++)
+                arr[i] = Value::From(ctx, vec[i]);
+            return arr;
+        }
+
+        static JsResult<std::array<T, TLen>> Unwrap(Value value) {
+            auto lenRes = (*value["length"]).As<size_t>();
+            if (!lenRes.IsOk())
+                return lenRes.GetErr();
+
+            size_t len = lenRes.GetOk();
+
+            std::array<T, TLen> out {};
+
+            for (size_t i = 0; i < len; i++) {
+                auto res = (*value[i]).As<T>();
+                if (!res.IsOk())
+                    return res.GetErr();
+                out[i] = res.GetOk();
+            }
+
+            for (size_t i = len; i < TLen; i++) {
+                auto res = Value::Undefined(value.ctx).As<T>();
+                if (!res.IsOk())
+                    return res.GetErr();
+                out[i] = res.GetOk();
+            }
+            
+            return out;
         }
     };
 }

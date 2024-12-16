@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <expected>
 #include <functional>
@@ -10,6 +11,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "context_fwd.hpp"
 #include "conversion_fwd.hpp"
@@ -33,7 +35,7 @@ namespace Qjs {
             return Values.index() == 0;
         }
 
-        T GetOk() {
+        T GetOk() noexcept(false) {
             if (!IsOk())
                 throw GetErr();
             return std::get<0>(Values);
@@ -100,7 +102,7 @@ namespace Qjs {
         Value(Context &ctx, T &&value) : Value(Conversion<T>::Wrap(ctx, std::forward<T>(value))) {}
 
         template <typename T>
-        static Value From(Context &ctx, T value) {
+        static Value From(Context &ctx, T const &value) {
             return Conversion<T>::Wrap(ctx, value);
         }
 
@@ -114,6 +116,10 @@ namespace Qjs {
 
         static Value ThrowPlainError(Context &ctx, std::string &&message) {
             return Value(ctx, JS_ThrowPlainError(ctx, "%s", message.c_str()));
+        }
+
+        static Value ThrowRangeError(Context &ctx, std::string &&message) {
+            return Value(ctx, JS_ThrowRangeError(ctx, "%s", message.c_str()));
         }
 
         static Value ThrowTypeError(Context &ctx, std::string &&message) {
@@ -135,6 +141,13 @@ namespace Qjs {
             auto obj = JS_NewObject(ctx);
             Value val {ctx, obj};
             JS_FreeValue(ctx, obj);
+            return val;
+        }
+
+        static Value Array(Context &ctx) {
+            auto arr = JS_NewArray(ctx);
+            Value val {ctx, arr};
+            JS_FreeValue(ctx, arr);
             return val;
         }
 
@@ -297,11 +310,41 @@ namespace Qjs {
 
         template <auto TGetSet>
         struct GetSetWrapper;
+
+        template <auto TFun>
+            requires requires (Value thisObj, std::vector<Value> params) {
+                { TFun(thisObj, params) } -> std::same_as<Value>;
+            }
+        struct RawFunctionWrapper {
+            static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
+                auto _ctx = Context::From(__ctx);
+                if (!_ctx)
+                    return JS_ThrowPlainError(__ctx, "Whar");
+                auto &ctx = *_ctx;
+
+                Value thisVal {ctx, this_val};
+                
+                std::vector<Value> values {size_t(argc), Value::Undefined(ctx)};
+
+                for (size_t i = 0; i < values.size(); i++)
+                    values[i] = Value(ctx, argv[i]);
+
+                return JS_DupValue(ctx, TFun(thisVal, values));
+            }
+        };
         public:
 
         template <auto TFun>
         static Value Function(Context &ctx, std::string &&name) {
             return Value(ctx, JS_NewCFunction(ctx, FunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
+        }
+
+        template <auto TFun>
+            requires requires (Value thisObj, std::vector<Value> params) {
+                { TFun(thisObj, params) } -> std::same_as<Value>;
+            }
+        static Value RawFunction(Context &ctx, std::string &&name) {
+            return Value(ctx, JS_NewCFunction(ctx, RawFunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
         }
 
         template <auto TGet>
