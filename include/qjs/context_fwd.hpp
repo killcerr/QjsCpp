@@ -32,7 +32,7 @@ namespace Qjs {
             return static_cast<Context *>(JS_GetContextOpaque(ctx));
         }
 
-        struct Value Eval(std::string src, std::string file);
+        struct Value Eval(std::string src, std::string file, int flags = 0);
 
         Module &AddModule(std::string &&name);
     };

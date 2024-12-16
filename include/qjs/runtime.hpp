@@ -4,6 +4,7 @@
 #include "quickjs.h"
 #include "runtime_fwd.hpp"
 #include <algorithm>
+#include <optional>
 #include <string>
 #include "module.hpp" // IWYU pragma: keep
 
@@ -40,9 +41,24 @@ namespace Qjs {
 
         std::string requestedSource = requestedSourceCstr;
 
-        if (ctx.modulesByName.contains(requestedSource))
-            return *ctx.modulesByName[requestedSource];
+        std::optional<std::string> src = TLoad(ctx, requestedSource);
+
+        if (!src)
+            return nullptr;
+
+        auto res = ctx.Eval(*src, requestedSource, JS_EVAL_FLAG_COMPILE_ONLY);
+
+        JSModuleDef *mod = reinterpret_cast<JSModuleDef *>(JS_VALUE_GET_PTR(res.value));
+
+        auto metaVal = JS_GetImportMeta(ctx, mod);
+
+        Value meta (ctx, metaVal);
+
+        JS_FreeValue(ctx, meta);
+
+        meta["url"] = Value::From(ctx, requestedSource);
+        meta["main"] = Value::From(ctx, false);
             
-        return nullptr;
+        return mod;
     }
 }

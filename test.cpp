@@ -1,8 +1,10 @@
 #include "include/qjs.hpp"
 #include "qjs/class.hpp"
 #include "qjs/classbuilder.hpp"
+#include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
 #include <iostream>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -22,6 +24,7 @@ struct Test : public Qjs::Class {
 
 char const Src[] = JS_SOURCE(
     import {Test} from "#test";
+    import {wawa} from "testmod";
 
     const test = new Test(2, 2.5);
     log(test.x, test.y);
@@ -29,6 +32,14 @@ char const Src[] = JS_SOURCE(
     log(test.x, test.y);
     test.wawa("wawa");
     testFun([test, test, test, test]);
+
+    wawa();
+);
+
+char const TestModSrc[] = JS_SOURCE(
+    export function wawa() {
+        log("test");
+    }
 );
 
 Qjs::Value Log(Qjs::Value thisVal, std::vector<Qjs::Value> &args) {
@@ -48,8 +59,17 @@ void TestFun(std::vector<Test *> t) {
     std::println(std::cout, "{}", t.size());
 }
 
+std::string Normalize(Qjs::Context &ctx, std::string requesting, std::string requested) {
+    return requested;
+}
+
+std::optional<std::string> Load(Qjs::Context &ctx, std::string requested) {
+    return TestModSrc;
+}
+
 int main(int argc, char **argv) {
     Qjs::Runtime rt;
+    rt.SetModuleLoaderFunc<Normalize, Load>();
     Qjs::Context ctx {rt};
 
     auto global = Qjs::Value::Global(ctx);
