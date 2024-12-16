@@ -100,8 +100,8 @@ namespace Qjs {
         Value(Context &ctx, T &&value) : Value(Conversion<T>::Wrap(ctx, std::forward<T>(value))) {}
 
         template <typename T>
-        static Value From(Context &ctx, T &&value) {
-            return Conversion<T>::Wrap(ctx, std::forward<T>(value));
+        static Value From(Context &ctx, T value) {
+            return Conversion<T>::Wrap(ctx, value);
         }
 
         static Value Null(Context &ctx) {
@@ -129,9 +129,6 @@ namespace Qjs {
         }
 
         private:
-        template <auto TFun>
-        struct FunctionWrapper;
-
         template <typename ...TArgs, std::size_t... TIndices>
         static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, int argc, JSValue *argv, std::index_sequence<TIndices...>) {
             std::array<Value, sizeof...(TArgs)> rawArgs {(Unit<TArgs>(Value::Undefined(ctx)))...};
@@ -146,10 +143,15 @@ namespace Qjs {
             }
         }
 
+        public:
         template <typename ...TArgs>
         static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, int argc, JSValue *argv) {
             return UnpackArgs<TArgs...>(ctx, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
         }
+
+        private:
+        template <auto TFun>
+        struct FunctionWrapper;
 
         template <typename TReturn, typename ...TArgs, TReturn (*TFun)(TArgs...)>
         struct FunctionWrapper<TFun> {

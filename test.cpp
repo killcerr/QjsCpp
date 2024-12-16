@@ -1,5 +1,6 @@
 #include "include/qjs.hpp"
 #include "qjs/value.hpp"
+#include <functional>
 #include <iostream>
 #include <ostream>
 
@@ -17,15 +18,14 @@ int main(int argc, char **argv) {
     Qjs::Runtime rt;
     Qjs::Context ctx {rt};
 
-    auto addFunc = Qjs::Value::Function<add>(ctx, "add");
-    auto wrappedAddFunc = addFunc.ToFunction<int, int, int>();
+    std::function<int(int, int)> test = [](int a, int b) -> int {
+        return a + b;
+    };
 
-    auto res = wrappedAddFunc(1, 2);
+    auto addFunc = Qjs::Value::From(ctx, test);
+    auto wrappedAddFunc = addFunc.As<std::function<int(int, int)>>().GetOk();
 
-    if (res.IsOk())
-        std::println(std::cout, "{}", res.GetOk());
-    else
-        std::println(std::cout, "{}", res.GetErr().ExceptionMessage());
+    std::println(std::cout, "{}", wrappedAddFunc(1, 2));
 
     return 0;
 }
