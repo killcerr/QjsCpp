@@ -7,6 +7,7 @@
 #include "quickjs.h"
 #include <string>
 #include <type_traits>
+#include "module.hpp"
 
 namespace Qjs {
     template <typename T>
@@ -97,6 +98,10 @@ namespace Qjs {
 
         void Build(Value object) {
             object[Name] = ctor;
+        }
+
+        void Build(Module &mod) {
+            mod.AddExport(std::string(Name), ctor);
         }
     };
 }

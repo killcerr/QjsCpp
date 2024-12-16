@@ -1,24 +1,24 @@
 #pragma once
 
-#include <functional>
-#include <optional>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "quickjs.h"
-#include "runtime.hpp"
+#include "runtime_fwd.hpp"
 
 namespace Qjs {
-    using ModuleNormalizeFunc = std::function<std::string (std::string const &requestingSource, std::string const &requestedSource)>;
-    using ModuleLoaderFunc = std::function<std::optional<std::string> (std::string const &path)>;
+    struct Module;
 
     struct Context final {
         Runtime &rt;
         JSContext *ctx;
 
-        Context(Runtime &rt) : rt(rt) {
-            ctx = JS_NewContext(rt);
-            JS_SetContextOpaque(ctx, this);
-        }
+        std::vector<Module> modules;
+        std::unordered_map<size_t, Module *> modulesByPtr;
+        std::unordered_map<std::string, Module *> modulesByName;
+
+        Context(Runtime &rt);
 
         operator JSContext *() {
             return ctx;
@@ -33,5 +33,7 @@ namespace Qjs {
         }
 
         struct Value Eval(std::string src, std::string file);
+
+        Module &AddModule(std::string &&name);
     };
 }

@@ -165,7 +165,6 @@ namespace Qjs {
             std::array<Value, sizeof...(TArgs)> rawArgs {(Unit<TArgs>(Value::Undefined(ctx)))...};
             for (size_t i = 0; i < std::min(sizeof...(TArgs), size_t(argc)); i++)
                 rawArgs[i] = Value(ctx, argv[i]);
-            
             try {
                 std::tuple<TArgs...> args {rawArgs[TIndices].template As<TArgs>().GetOk()...};
                 return args;

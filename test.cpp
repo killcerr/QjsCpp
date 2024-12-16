@@ -21,6 +21,8 @@ struct Test : public Qjs::Class {
 };
 
 char const Src[] = JS_SOURCE(
+    import {Test} from "#test";
+
     const test = new Test(2, 2.5);
     log(test.x, test.y);
     test.x += 1;
@@ -54,16 +56,20 @@ int main(int argc, char **argv) {
 
     global["log"] = Qjs::Value::RawFunction<Log>(ctx, "log");
 
+    auto &testMod = ctx.AddModule("#test");
+
     Qjs::ClassBuilder<Test>(ctx, "Test")
         .Ctor<int, float>()
         .Field<&Test::x>("x")
         .Field<&Test::y>("y")
         .Method<&Test::wawa>("wawa")
-        .Build(global);
+        .Build(testMod);
 
     global["testFun"] = Qjs::Value::Function<TestFun>(ctx, "testFun");
 
-    ctx.Eval(Src, "src.js");
+    auto result = ctx.Eval(Src, "src.js");
+    if (result.IsException())
+        std::println(std::cout, "{}", ctx.Eval(Src, "src.js").ExceptionMessage());
 
     return 0;
 }
