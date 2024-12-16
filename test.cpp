@@ -1,31 +1,63 @@
 #include "include/qjs.hpp"
-#include "qjs/value.hpp"
-#include <functional>
+#include "qjs/class.hpp"
+#include "qjs/classbuilder.hpp"
+#include "qjs/value_fwd.hpp"
 #include <iostream>
 #include <ostream>
+#include <string>
 
 #define JS_SOURCE(...) #__VA_ARGS__
 
-char const Src[] = JS_SOURCE(
-    
-);
-
 int add(int a, int b) {
     return a + b;
+}
+
+struct Test : public Qjs::Class {
+    int x;
+    float const y;
+
+    Test(int x, float y) : x(x), y(y) {}
+
+    void wawa(std::string s) {
+        std::println(std::cout, "{}: {}, {}", s, x, y);
+    }
+};
+
+char const Src[] = JS_SOURCE(
+    const test = new Test(2, 2.5);
+    print(test.x);
+    test.x += 1;
+    print(test.x);
+    test.wawa("wawa");
+    testFun(test);
+);
+
+void Print(std::string str) {
+    std::println(std::cout, "{}", str);
+}
+
+void TestFun(Test t) {
+    std::println(std::cout, "wawa");
 }
 
 int main(int argc, char **argv) {
     Qjs::Runtime rt;
     Qjs::Context ctx {rt};
 
-    std::function<int(int, int)> test = [](int a, int b) -> int {
-        return a + b;
-    };
+    auto global = Qjs::Value::Global(ctx);
 
-    auto addFunc = Qjs::Value::From(ctx, test);
-    auto wrappedAddFunc = addFunc.As<std::function<int(int, int)>>().GetOk();
+    global["print"] = Qjs::Value::Function<Print>(ctx, "print");
 
-    std::println(std::cout, "{}", wrappedAddFunc(1, 2));
+    Qjs::ClassBuilder<Test>(ctx, "Test")
+        .Ctor<int, float>()
+        .Field<&Test::x>("x")
+        .Field<&Test::y>("y")
+        .Method<&Test::wawa>("wawa")
+        .Build(global);
+
+    global["testFun"] = Qjs::Value::Function<TestFun>(ctx, "testFun");
+
+    ctx.Eval(Src, "src.js");
 
     return 0;
 }

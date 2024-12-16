@@ -1,9 +1,10 @@
 #pragma once
 
-#include "qjs/context.hpp"
-#include "qjs/runtime.hpp"
+#include "qjs/class.hpp"
+#include "qjs/classwrapper_fwd.hpp"
+#include "qjs/context_fwd.hpp"
 #include "quickjs.h"
-#include "value.hpp"
+#include "value_fwd.hpp"
 
 #include "conversion_fwd.hpp"
 #include <expected>
@@ -44,7 +45,7 @@ namespace Qjs {
         static constexpr bool Implemented = true;
 
         static Value Wrap(Context &ctx, TFloat value) {
-            return Value(JS_NewFloat64(ctx, int64_t(value)));
+            return Value(ctx, JS_NewFloat64(ctx, int64_t(value)));
         }
 
         static JsResult<TFloat> Unwrap(Value const &value) {
@@ -109,82 +110,12 @@ namespace Qjs {
         }
     };
 
-    template <typename T>
-    struct JsClassWrapper {
-        private:
-        inline static JSClassID classId = 0;
-        static inline std::vector<Value T::*> markOffsets;
-
-        public:
-        static JSClassID GetClassId(Runtime &rt) {
-            if (classId != 0)
-                return classId;
-
-            JS_NewClassID(rt, &classId);
-            return classId;
-        }
-
-        static void RegisterClass(Context &ctx, std::string &&name, JSClassCall *invoker = nullptr) {
-            if (JS_IsRegisteredClass(ctx.rt, GetClassId(ctx.rt)))
-                return;
-
-            JSClassGCMark *marker = nullptr;
-            if (!markOffsets.empty()) {
-                marker = [](JSRuntime *__rt, JSValue val, JS_MarkFunc *mark_func) {
-                    auto _rt = Runtime::From(__rt);
-                    if (!_rt)
-                        return;
-                    auto &rt = *_rt;
-
-                    auto ptr = static_cast<T *>(JS_GetOpaque(val, GetClassId(rt)));
-                    if (!ptr)
-                        return;
-
-                    for (Value T::* member : markOffsets)
-                        JS_MarkValue(rt, (*ptr.*member).value, mark_func);
-                };
-            }
-
-            JSClassDef def{
-                name.c_str(),
-                [](JSRuntime *__rt, JSValue obj) noexcept {
-                    auto _rt = Runtime::From(__rt);
-                    if (!_rt)
-                        return;
-                    auto &rt = *_rt;
-                    
-                    auto ptr = static_cast<T*>(JS_GetOpaque(obj, GetClassId(rt)));
-                    delete ptr;
-                },
-                marker,
-                invoker,
-                nullptr
-            };
-
-            JS_NewClass(ctx.rt, GetClassId(ctx.rt), &def);
-        }
-
-        static void SetProto(Context &ctx, Value proto) {
-            JS_SetClassProto(ctx, GetClassId(ctx.rt), proto);
-        }
-
-        static Value New(Context &ctx, T *value) {
-            auto obj = JS_NewObjectClass(ctx, GetClassId(ctx.rt));
-            JS_SetOpaque(obj, value);
-            return Value(ctx, obj);
-        }
-
-        static T *Get(Value value) {
-            return static_cast<T *>(JS_GetOpaque(value, GetClassId(value.ctx.rt)));
-        }
-    };
-
     template <typename TReturn, typename ...TArgs>
-    struct Conversion<std::function<TReturn(TArgs...)>> {
+    struct Conversion<std::function<TReturn(TArgs...)>> final {
         static constexpr bool Implemented = true;
 
         using TFun = std::function<TReturn(TArgs...)>;
-        using Class = JsClassWrapper<Conversion<TFun>>;
+        using Wrapper = ClassWrapper<Conversion<TFun>>;
         std::function<TReturn(TArgs...)> fun;
 
         static JSValue Invoke(JSContext *__ctx, JSValue func_obj, JSValue this_val, int argc, JSValue *argv, int flags) {
@@ -195,7 +126,7 @@ namespace Qjs {
             auto &ctx = *_ctx;
             Value funcObj {ctx, func_obj};
 
-            Conversion *conv = Class::Get(funcObj);
+            Conversion *conv = Wrapper::Get(funcObj);
 
             auto args = Value::UnpackArgs<TArgs...>(ctx, argc, argv);
             if (!args.IsOk())
@@ -211,20 +142,55 @@ namespace Qjs {
         }
 
         static Value Wrap(Context &ctx, TFun f) {
-            Class::RegisterClass(ctx, "Function", Invoke);
+            Wrapper::RegisterClass(ctx, "Function", Invoke);
 
-            return Class::New(ctx, new Conversion {f});
+            return Wrapper::New(ctx, new Conversion {f});
         }
 
         static JsResult<TFun> Unwrap(Value value) {
-            Class::RegisterClass(value.ctx, "Function", Invoke);
+            Wrapper::RegisterClass(value.ctx, "Function", Invoke);
 
-            if (JS_GetClassID(value) == Class::GetClassId(value.ctx.rt))
-                return Class::Get(value)->fun;
+            if (JS_GetClassID(value) == Wrapper::GetClassId(value.ctx.rt))
+                return Wrapper::Get(value)->fun;
 
             return (TFun) [&](TArgs ...args) -> TReturn {
                 return value.ToFunction<TReturn, TArgs...>()(args...).GetOk();
             };
+        }
+    };
+
+    template <typename T>
+        requires std::is_base_of_v<Class, T>
+    struct Conversion<T *> final {
+        static constexpr bool Implemented = true;
+        using Wrapper = ClassWrapper<T>;
+
+        static Value Wrap(Context &ctx, T *cl) {
+            return Wrapper::New(ctx, cl);
+        }
+
+        static T *Unwrap(Value value) {
+            T *out = Wrapper::Get(value);;
+            out->jsThis = value;
+            return out;
+        }
+    };
+    
+
+    template <typename T>
+        requires (std::is_base_of_v<Class, T> && std::is_copy_constructible_v<T>)
+    struct Conversion<T> final {
+        static constexpr bool Implemented = true;
+        using Wrapper = ClassWrapper<T>;
+
+        static Value Wrap(Context &ctx, T const &cl) {
+            return Wrapper::New(ctx, new T(cl));
+        }
+
+        static T Unwrap(Value value) {
+            T *out = Wrapper::Get(value);;
+            out->jsThis = value;
+            return *out;
         }
     };
 }
