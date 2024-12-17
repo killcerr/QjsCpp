@@ -6,10 +6,11 @@ namespace Qjs {
     struct Runtime final {
         JSRuntime *rt;
 
-        Runtime() {
+        Runtime(bool debug = false) {
             rt = JS_NewRuntime();
             JS_SetRuntimeOpaque(rt, this);
-            JS_SetDumpFlags(rt, 0xffffffffffffffff);
+            if (debug)
+                JS_SetDumpFlags(rt, 0xffffffffffffffff);
         }
 
         Runtime(Runtime const &copy) = delete;
