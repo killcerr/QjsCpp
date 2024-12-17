@@ -82,7 +82,12 @@ namespace Qjs {
             if (tag == JS_TAG_UNDEFINED || tag == JS_TAG_NULL || tag == JS_TAG_UNINITIALIZED)
                 return std::nullopt;
 
-            return Conversion<T>::Unwrap(value);
+            auto val = Conversion<T>::Unwrap(value);
+
+            if (val.IsErr())
+                return val.GetErr();
+
+            return val.GetOk();
         }
     };
 
