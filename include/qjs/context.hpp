@@ -29,8 +29,8 @@ namespace Qjs {
 
         Module &mod = modules[last];
 
-        modulesByPtr.insert({size_t(mod.mod), &mod});
-        modulesByName.insert({name, &mod});
+        modulesByPtr.insert({size_t(mod.mod), last});
+        modulesByName.insert({name, last});
 
         return mod;
     }

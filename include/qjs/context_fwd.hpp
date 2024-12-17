@@ -15,8 +15,8 @@ namespace Qjs {
         JSContext *ctx;
 
         std::vector<Module> modules;
-        std::unordered_map<size_t, Module *> modulesByPtr;
-        std::unordered_map<std::string, Module *> modulesByName;
+        std::unordered_map<size_t, size_t> modulesByPtr;
+        std::unordered_map<std::string, size_t> modulesByName;
 
         Context(Runtime &rt);
 

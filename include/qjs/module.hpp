@@ -29,8 +29,8 @@ namespace Qjs {
             }
             auto &ctx = *_ctx;
 
-            auto mod = ctx.modulesByPtr[size_t(m)];
-            return mod->Load();
+            auto &mod = ctx.modules[ctx.modulesByPtr[size_t(m)]];
+            return mod.Load();
         }
 
         int Load() {

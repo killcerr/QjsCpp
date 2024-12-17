@@ -86,6 +86,8 @@ int main(int argc, char **argv) {
         .Method<&Test::wawa>("wawa")
         .Build(testMod);
 
+    auto &test2Mod = ctx.AddModule("#test2");
+
     global["testFun"] = Qjs::Value::Function<TestFun>(ctx, "testFun");
 
     auto result = ctx.Eval(Src, "src.js");
