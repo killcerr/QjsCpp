@@ -179,6 +179,7 @@ namespace Qjs {
 
         static JsResult<T *> Unwrap(Value value) {
             T *out = Wrapper::Get(value);
+            out->jsThis = value;
             return out;
         }
     };
