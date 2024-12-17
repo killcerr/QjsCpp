@@ -255,7 +255,8 @@ namespace Qjs {
 
                 std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
-                auto thisRes = thisVal.As<TThis *>();;
+                auto thisRes = thisVal.As<RequireNonNull<TThis>>();
+
                 if (!thisRes.IsOk())
                     return thisRes.GetErr().ToUnmanaged();
 
@@ -289,7 +290,8 @@ namespace Qjs {
 
                 std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
-                auto thisRes = thisVal.As<TThis *>();;
+                auto thisRes = thisVal.As<RequireNonNull<TThis>>();
+                
                 if (!thisRes.IsOk())
                     return thisRes.GetErr().ToUnmanaged();
 
@@ -401,6 +403,10 @@ namespace Qjs {
 
         bool IsException() {
             return JS_IsException(value);
+        }
+
+        bool IsNullish() const {
+            return value.tag == JS_TAG_NULL || value.tag == JS_TAG_UNDEFINED || value.tag == JS_TAG_UNINITIALIZED;
         }
 
         JsResult<std::string> ToString() const {

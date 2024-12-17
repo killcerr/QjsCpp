@@ -3,12 +3,15 @@
 #include "qjs/class.hpp"
 #include "qjs/classwrapper_fwd.hpp"
 #include "qjs/context_fwd.hpp"
+#include "qjs/util.hpp"
 #include "quickjs.h"
 #include "value_fwd.hpp"
 
 #include "conversion_fwd.hpp"
+#include <cassert>
 #include <cstddef>
 #include <expected>
+#include <format>
 #include <functional>
 #include <string>
 #include <tuple>
@@ -17,6 +20,33 @@
 #include <vector>
 
 namespace Qjs {
+    template <typename T>
+        requires std::is_base_of_v<Class, T>
+    struct RequireNonNull<T> final {
+        T *const Ptr;
+
+        RequireNonNull(T *value) : Ptr(value) {
+            assert(Ptr);
+        }
+        RequireNonNull(RequireNonNull const &copy) : Ptr(copy.Ptr) {}
+
+        T operator * () {
+            return *Ptr;
+        }
+
+        operator T * () {
+            return Ptr;
+        }
+
+        T *operator -> () {
+            return Ptr;
+        }
+
+        operator bool () {
+            return Ptr;
+        }
+    };
+
     template <typename TInt>
         requires std::is_integral_v<TInt>
     struct Conversion<TInt> final {
@@ -79,7 +109,7 @@ namespace Qjs {
 
         static JsResult<std::optional<T>> Unwrap(Value const &value) {
             auto tag = value.value.tag;
-            if (tag == JS_TAG_UNDEFINED || tag == JS_TAG_NULL || tag == JS_TAG_UNINITIALIZED)
+            if (value.IsNullish())
                 return std::optional<T>(std::nullopt);
 
             auto val = Conversion<T>::Unwrap(value);
@@ -172,15 +202,48 @@ namespace Qjs {
         using Wrapper = ClassWrapper<T>;
 
         static Value Wrap(Context &ctx, T *cl) {
+            if (cl == nullptr)
+                return Value::Null(ctx);
+
             if (cl->jsThis)
                 return *cl->jsThis;
+
             return Wrapper::New(ctx, cl);
         }
 
         static JsResult<T *> Unwrap(Value value) {
+            if (value.IsNullish())
+                return nullptr;
+
+            if (!Wrapper::IsThis(value))
+                return Value::ThrowTypeError(value.ctx, std::format("Expected {}", NameOf<T>()));
+
             T *out = Wrapper::Get(value);
             out->jsThis = value;
             return out;
+        }
+    };
+
+    template <typename T>
+        requires std::is_base_of_v<Class, T>
+    struct Conversion<RequireNonNull<T>> final {
+        static constexpr bool Implemented = true;
+        using Wrapper = ClassWrapper<T>;
+
+        static Value Wrap(Context &ctx, RequireNonNull<T> cl) {
+            if (cl->jsThis)
+                return *cl->jsThis;
+
+            return Wrapper::New(ctx, cl);
+        }
+
+        static JsResult<RequireNonNull<T>> Unwrap(Value value) {
+            if (!Wrapper::IsThis(value))
+                return Value::ThrowTypeError(value.ctx, std::format("Expected {}", NameOf<T>()));
+
+            T *out = Wrapper::Get(value);
+            out->jsThis = value;
+            return RequireNonNull<T>(out);
         }
     };
     
@@ -192,13 +255,14 @@ namespace Qjs {
         using Wrapper = ClassWrapper<T>;
 
         static Value Wrap(Context &ctx, T const &cl) {
-            return Wrapper::New(ctx, new T(cl));
+            return Conversion<RequireNonNull<T>>::Wrap(ctx, RequireNonNull<T>(new T(cl)));
         }
 
         static JsResult<T> Unwrap(Value value) {
-            T *out = Wrapper::Get(value);;
-            out->jsThis = value;
-            return *out;
+            auto res = Conversion<RequireNonNull<T>>::Unwrap(value);
+            if (!res.IsOk())
+                return res.GetErr();
+            return *res.GetOk();
         }
     };
 
@@ -222,13 +286,12 @@ namespace Qjs {
             size_t len = lenRes.GetOk();
 
             std::vector<T> out {};
-            out.resize(len);
 
             for (size_t i = 0; i < len; i++) {
                 auto res = (*value[i]).As<T>();
                 if (!res.IsOk())
                     return res.GetErr();
-                out[i] = res.GetOk();
+                out.push_back(res.GetOk());
             }
 
             return out;

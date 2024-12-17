@@ -5,4 +5,7 @@ namespace Qjs {
     struct Conversion final {
         static constexpr bool Implemented = false;
     };
+
+    template <typename T>
+    struct RequireNonNull;
 }

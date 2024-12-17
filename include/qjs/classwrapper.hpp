@@ -13,4 +13,9 @@ namespace Qjs {
     T *ClassWrapper<T>::Get(Value value) {
         return static_cast<T *>(JS_GetOpaque(value, GetClassId(value.ctx.rt)));
     }
+
+    template <typename T>
+    bool ClassWrapper<T>::IsThis(Value value) {
+        return GetClassId(value.ctx.rt) == JS_GetClassID(value);
+    }
 }

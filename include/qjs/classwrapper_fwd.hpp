@@ -75,6 +75,8 @@ namespace Qjs {
             return val;
         }
 
+        static bool IsThis(Value value);
+
         static T *Get(Value value);
     };
 }

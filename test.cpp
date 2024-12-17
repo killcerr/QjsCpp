@@ -2,6 +2,7 @@
 #include "qjs/class.hpp"
 #include "qjs/classbuilder.hpp"
 #include "qjs/context_fwd.hpp"
+#include "qjs/conversion.hpp"
 #include "qjs/value_fwd.hpp"
 #include <functional>
 #include <iostream>
@@ -56,7 +57,7 @@ Qjs::Value Log(Qjs::Value thisVal, std::vector<Qjs::Value> &args) {
     return Qjs::Value::Undefined(thisVal.ctx);
 }
 
-void TestFun(std::vector<Test *> t) {
+void TestFun(std::vector<Qjs::RequireNonNull<Test>> t) {
     std::println(std::cerr, "{}", t.size());
 }
 
