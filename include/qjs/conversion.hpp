@@ -84,7 +84,7 @@ namespace Qjs {
 
             auto val = Conversion<T>::Unwrap(value);
 
-            if (val.IsErr())
+            if (!val.IsOk())
                 return val.GetErr();
 
             return val.GetOk();
