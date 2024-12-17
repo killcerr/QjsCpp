@@ -56,15 +56,39 @@ namespace Qjs {
             return obj.ToUnmanaged();
         }
 
+        static JSValue NoCtorInvoke(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
+            return JS_ThrowPlainError(ctx, "Class can't be constructed");
+        }
+
+        template <auto TCtor>
+        struct CtorWrapper;
+
+        template <typename TClass, typename ...TArgs, TClass *(*TCtor)(TArgs...)>
+        struct CtorWrapper<TCtor> {
+            static constexpr auto Invoke = CtorInvoke<TCtor, std::decay_t<TArgs>...>;
+            static constexpr auto ArgCount = sizeof...(TArgs);
+        };
+
         template <typename ...TArgs>
         static T *DefaultConstructor(TArgs &&...args) {
             return new T(args...);
         }
 
         public:
+        template <auto TCtor>
+        ClassBuilder &CtorFun() {
+            ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, CtorWrapper<TCtor>::Invoke, Name.c_str(), CtorWrapper<TCtor>::ArgCount, JS_CFUNC_constructor, 0));
+            JS_SetConstructor(ctx, ctor, prototype);
+            return *this;
+        }
+
         template <typename ...TArgs>
         ClassBuilder &Ctor() {
-            ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, CtorInvoke<DefaultConstructor<TArgs...>, TArgs...>, Name.c_str(), sizeof...(TArgs), JS_CFUNC_constructor, 0));
+            return CtorFun<DefaultConstructor<TArgs...>>();
+        }
+
+        ClassBuilder &NoCtor() {
+            ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, NoCtorInvoke, Name.c_str(), 0, JS_CFUNC_constructor, 0));
             JS_SetConstructor(ctx, ctor, prototype);
             return *this;
         }
