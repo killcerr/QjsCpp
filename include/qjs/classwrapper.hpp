@@ -1,11 +1,12 @@
 #pragma once
 
 #include "classwrapper_fwd.hpp"
+#include "quickjs.h"
 
 namespace Qjs {
     template <typename T>
     void ClassWrapper<T>::SetProto(Value proto) {
-        JS_SetClassProto(proto.ctx, GetClassId(proto.ctx.rt), proto);
+        JS_SetClassProto(proto.ctx, GetClassId(proto.ctx.rt), proto.ToUnmanaged());
     }
 
     template <typename T>

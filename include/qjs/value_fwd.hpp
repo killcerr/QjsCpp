@@ -62,11 +62,11 @@ namespace Qjs {
             friend struct Value;
 
             public:
-            void operator = (Value const &value) {
+            void operator = (Value &&value) {
                 if constexpr (std::is_same_v<T, std::string>)
-                    JS_SetPropertyStr(Parent.ctx, Parent, Index.c_str(), value);
+                    JS_SetPropertyStr(Parent.ctx, Parent, Index.c_str(), value.ToUnmanaged());
                 else
-                    JS_SetPropertyInt64(Parent.ctx, Parent, Index, value);
+                    JS_SetPropertyInt64(Parent.ctx, Parent, Index, value.ToUnmanaged());
             }
 
             operator Value () {
@@ -75,9 +75,9 @@ namespace Qjs {
 
             Value operator * () {
                 if constexpr (std::is_same_v<T, std::string>)
-                    return Value(Parent.ctx, JS_GetPropertyStr(Parent.ctx, Parent, Index.c_str()));
+                    return CreateFree(Parent.ctx, JS_GetPropertyStr(Parent.ctx, Parent, Index.c_str()));
                 else
-                    return Value(Parent.ctx, JS_GetPropertyInt64(Parent.ctx, Parent, Index));
+                    return CreateFree(Parent.ctx, JS_GetPropertyInt64(Parent.ctx, Parent, Index));
             }
         };
 
@@ -87,6 +87,12 @@ namespace Qjs {
         Value(Context &ctx, JSValue value) : ctx(ctx), value(JS_DupValue(ctx, value)) {}
 
         Value(Value const &copy) : Value(copy.ctx, copy) {}
+
+        static Value CreateFree(Context &ctx, JSValue val) {
+            Value out (ctx, val);
+            JS_FreeValue(ctx, val);
+            return out;
+        }
 
         void operator = (Value const &copy) {
             this->~Value();
@@ -115,40 +121,31 @@ namespace Qjs {
         }
 
         static Value ThrowPlainError(Context &ctx, std::string &&message) {
-            return Value(ctx, JS_ThrowPlainError(ctx, "%s", message.c_str()));
+            return CreateFree(ctx, JS_ThrowPlainError(ctx, "%s", message.c_str()));
         }
 
         static Value ThrowRangeError(Context &ctx, std::string &&message) {
-            return Value(ctx, JS_ThrowRangeError(ctx, "%s", message.c_str()));
+            return CreateFree(ctx, JS_ThrowRangeError(ctx, "%s", message.c_str()));
         }
 
         static Value ThrowTypeError(Context &ctx, std::string &&message) {
-            return Value(ctx, JS_ThrowTypeError(ctx, "%s", message.c_str()));
+            return CreateFree(ctx, JS_ThrowTypeError(ctx, "%s", message.c_str()));
         }
 
         static Value Throw(Value err) {
-            return Value(err.ctx, JS_Throw(err.ctx, JS_DupValue(err.ctx, err)));
+            return CreateFree(err.ctx, JS_Throw(err.ctx, err.ToUnmanaged()));
         }
 
         static Value Global(Context &ctx) {
-            auto obj = JS_GetGlobalObject(ctx);
-            Value val {ctx, obj};
-            JS_FreeValue(ctx, obj);
-            return val;
+            return CreateFree(ctx, JS_GetGlobalObject(ctx));
         }
 
         static Value Object(Context &ctx) {
-            auto obj = JS_NewObject(ctx);
-            Value val {ctx, obj};
-            JS_FreeValue(ctx, obj);
-            return val;
+            return CreateFree(ctx, JS_NewObject(ctx));
         }
 
         static Value Array(Context &ctx) {
-            auto arr = JS_NewArray(ctx);
-            Value val {ctx, arr};
-            JS_FreeValue(ctx, arr);
-            return val;
+            return CreateFree(ctx, JS_NewArray(ctx));
         }
 
         template <typename T>
@@ -198,15 +195,15 @@ namespace Qjs {
                 JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
-                    return JS_DupValue(ctx, optArgs.GetErr());
+                    return optArgs.GetErr().ToUnmanaged();
 
                 std::tuple<TArgs...> args = optArgs.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, args);
-                    return JS_DupValue(ctx, Value::Undefined(ctx));
+                    return Value::Undefined(ctx).ToUnmanaged();
                 } else {
-                    return JS_DupValue(ctx, Value::From(ctx, std::apply(TFun, args)));
+                    return Value::From(ctx, std::apply(TFun, args)).ToUnmanaged();
                 }
             }
         };
@@ -226,15 +223,15 @@ namespace Qjs {
                 JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
-                    return JS_DupValue(ctx, optArgs.GetErr());
+                    return optArgs.GetErr().ToUnmanaged();
 
                 std::tuple<TArgs...> args = optArgs.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, args);
-                    return JS_DupValue(ctx, Value::Undefined(ctx));
+                    return Value::Undefined(ctx).ToUnmanaged();
                 } else {
-                    return JS_DupValue(ctx, Value::From(ctx, std::apply(TFun, args)));
+                    return Value::From(ctx, std::apply(TFun, args)).ToUnmanaged();
                 }
             }
         };
@@ -254,21 +251,21 @@ namespace Qjs {
                 JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
-                    return JS_DupValue(ctx, optArgs.GetErr());
+                    return optArgs.GetErr().ToUnmanaged();
 
                 std::tuple<TArgs...> args = optArgs.GetOk();
 
                 auto thisRes = thisVal.As<TThis *>();;
                 if (!thisRes.IsOk())
-                    return JS_DupValue(ctx, thisRes.GetErr());
+                    return thisRes.GetErr().ToUnmanaged();
 
                 TThis *_this = thisRes.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args));
-                    return JS_DupValue(ctx, Value::Undefined(ctx));
+                    return Value::Undefined(ctx).ToUnmanaged();
                 } else {
-                    return JS_DupValue(ctx, Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))));
+                    return Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))).ToUnmanaged();
                 }
             }
         };
@@ -288,21 +285,21 @@ namespace Qjs {
                 JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
-                    return JS_DupValue(ctx, optArgs.GetErr());
+                    return optArgs.GetErr().ToUnmanaged();
 
                 std::tuple<TArgs...> args = optArgs.GetOk();
 
                 auto thisRes = thisVal.As<TThis *>();;
                 if (!thisRes.IsOk())
-                    return JS_DupValue(ctx, thisRes.GetErr());
+                    return thisRes.GetErr().ToUnmanaged();
 
                 TThis *_this = thisRes.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args));
-                    return JS_DupValue(ctx, Value::Undefined(ctx));
+                    return Value::Undefined(ctx).ToUnmanaged();
                 } else {
-                    return JS_DupValue(ctx, Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))));
+                    return Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))).ToUnmanaged();
                 }
             }
         };
@@ -328,14 +325,14 @@ namespace Qjs {
                 for (size_t i = 0; i < values.size(); i++)
                     values[i] = Value(ctx, argv[i]);
 
-                return JS_DupValue(ctx, TFun(thisVal, values));
+                return TFun(thisVal, values).ToUnmanaged();
             }
         };
         public:
 
         template <auto TFun>
         static Value Function(Context &ctx, std::string &&name) {
-            return Value(ctx, JS_NewCFunction(ctx, FunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
+            return CreateFree(ctx, JS_NewCFunction(ctx, FunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
         }
 
         template <auto TFun>
@@ -343,7 +340,7 @@ namespace Qjs {
                 { TFun(thisObj, params) } -> std::same_as<Value>;
             }
         static Value RawFunction(Context &ctx, std::string &&name) {
-            return Value(ctx, JS_NewCFunction(ctx, RawFunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
+            return CreateFree(ctx, JS_NewCFunction(ctx, RawFunctionWrapper<TFun>::Invoke, name.c_str(), FunctionWrapper<TFun>::ArgCount));
         }
 
         template <auto TGet>
@@ -355,8 +352,8 @@ namespace Qjs {
         template <typename TReturn, typename ...TArgs>
         std::function<JsResult<TReturn> (TArgs...)> ToFunction() {
             return [&](TArgs ...args) -> JsResult<TReturn> {
-                std::array<JSValue, sizeof...(TArgs)> argsRaw { JS_DupValue(ctx, Value::From(ctx, std::forward<TArgs>(args)))... };
-                auto result = Value(ctx, JS_Call(ctx, value, JS_UNDEFINED, sizeof...(TArgs), argsRaw.data()));
+                std::array<JSValue, sizeof...(TArgs)> argsRaw { Value::From(ctx, std::forward<TArgs>(args)).ToUnmanaged()... };
+                Value result = CreateFree(ctx, JS_Call(ctx, value, JS_UNDEFINED, sizeof...(TArgs), argsRaw.data()));
                 for (auto &arg : argsRaw)
                     JS_FreeValue(ctx, arg);
 
@@ -371,9 +368,9 @@ namespace Qjs {
         template <typename TReturn, typename TThis, typename ...TArgs>
         std::function<JsResult<TReturn> (TThis, TArgs...)> ToThisFunction() {
             return [&](TThis _this, TArgs ...args) -> JsResult<TReturn> {
-                std::array<JSValue, sizeof...(TArgs)> argsRaw { JS_DupValue(ctx, Value::From(ctx, std::forward<TArgs>(args)))... };
+                std::array<JSValue, sizeof...(TArgs)> argsRaw { Value::From(ctx, std::forward<TArgs>(args)).ToUnmanaged()... };
                 Value thisObj = Value::From(ctx, std::forward<TThis>(_this));
-                auto result = Value(ctx, JS_Call(ctx, value, thisObj, sizeof...(TArgs), argsRaw.data()));
+                Value result = CreateFree(ctx, JS_Call(ctx, value, thisObj, sizeof...(TArgs), argsRaw.data()));
                 for (auto &arg : argsRaw)
                     JS_FreeValue(ctx, arg);
 
@@ -417,8 +414,7 @@ namespace Qjs {
 
         template <typename = void>
         std::string ExceptionMessage() {
-            Value exception {ctx, JS_GetException(ctx)};
-            return exception.ToString().OkOr("Unknown error.");
+            return CreateFree(ctx, JS_GetException(ctx)).ToString().OkOr("Unknown error.");
         }
 
         Value Await() {
@@ -426,20 +422,12 @@ namespace Qjs {
                 JSPromiseStateEnum state = JS_PromiseState(ctx, value);
                 switch (state) {
                     case JS_PROMISE_FULFILLED: {
-                        auto res = JS_PromiseResult(ctx, value);
-
-                        auto val = Value(ctx, res);
-
-                        JS_FreeValue(ctx, res);
+                        auto val = CreateFree(ctx, JS_PromiseResult(ctx, value));
 
                         return val;
                     }
                     case JS_PROMISE_REJECTED: {
-                        auto res = JS_PromiseResult(ctx, value);
-
-                        auto val = Value(ctx, res);
-
-                        JS_FreeValue(ctx, res);
+                        auto val = CreateFree(ctx, JS_PromiseResult(ctx, value));
 
                         return Throw(val);
                     }
@@ -453,11 +441,14 @@ namespace Qjs {
 
         Value Prototype() {
             static const JSAtom JS_ATOM_prototype = JS_NewAtom(ctx, "prototype");
-            auto val = JS_GetProperty(ctx, value, JS_ATOM_prototype);
-            Value proto {ctx, val};
-            JS_FreeValue(ctx, val);
+            Value proto = CreateFree(ctx, JS_GetProperty(ctx, value, JS_ATOM_prototype));
 
             return proto;
+        }
+
+        /// Creates an unmanaged value. It's up to you to manage the lifetime.
+        JSValue ToUnmanaged() {
+            return JS_DupValue(ctx, value);
         }
     };
 

@@ -18,13 +18,15 @@ struct Test : public Qjs::Class {
     Test(int x, float y) : x(x), y(y) {}
 
     void wawa(std::string s) {
-        std::println(std::cout, "{}: {}, {}", s, x, y);
+        std::println(std::cerr, "{}: {}, {}", s, x, y);
     }
 };
 
 char const Src[] = JS_SOURCE(
+    // import {wawa} from "test";
     import {Test} from "#test";
-    import {wawa} from "testmod";
+
+    log("I like girls", 1, 2, 3, 4, 5, 6);
 
     const test = new Test(2, 2.5);
     log(test.x, test.y);
@@ -32,8 +34,6 @@ char const Src[] = JS_SOURCE(
     log(test.x, test.y);
     test.wawa("wawa");
     testFun([test, test, test, test]);
-
-    wawa();
 );
 
 char const TestModSrc[] = JS_SOURCE(
@@ -48,15 +48,15 @@ Qjs::Value Log(Qjs::Value thisVal, std::vector<Qjs::Value> &args) {
         if (!strRes.IsOk())
             return strRes.GetErr();
 
-        std::print(std::cout, "{}\t", strRes.GetOk());
+        std::print(std::cerr, "{}\t", strRes.GetOk());
     }
-    std::println(std::cout);
+    std::println(std::cerr, "");
 
     return Qjs::Value::Undefined(thisVal.ctx);
 }
 
 void TestFun(std::vector<Test *> t) {
-    std::println(std::cout, "{}", t.size());
+    std::println(std::cerr, "{}", t.size());
 }
 
 std::string Normalize(Qjs::Context &ctx, std::string requesting, std::string requested) {
@@ -64,14 +64,15 @@ std::string Normalize(Qjs::Context &ctx, std::string requesting, std::string req
 }
 
 std::optional<std::string> Load(Qjs::Context &ctx, std::string requested) {
-    return TestModSrc;
+    if (requested == "test")
+        return TestModSrc;
+    return std::nullopt;
 }
 
 int main(int argc, char **argv) {
     Qjs::Runtime rt;
     rt.SetModuleLoaderFunc<Normalize, Load>();
     Qjs::Context ctx {rt};
-
     auto global = Qjs::Value::Global(ctx);
 
     global["log"] = Qjs::Value::RawFunction<Log>(ctx, "log");
@@ -89,7 +90,7 @@ int main(int argc, char **argv) {
 
     auto result = ctx.Eval(Src, "src.js");
     if (result.IsException())
-        std::println(std::cout, "{}", ctx.Eval(Src, "src.js").ExceptionMessage());
+        std::println(std::cerr, "{}", ctx.Eval(Src, "src.js").ExceptionMessage());
 
     return 0;
 }

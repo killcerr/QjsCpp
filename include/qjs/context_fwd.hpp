@@ -20,6 +20,10 @@ namespace Qjs {
 
         Context(Runtime &rt);
 
+        Context(Context &copy) = delete;
+
+        ~Context();
+
         operator JSContext *() {
             return ctx;
         }

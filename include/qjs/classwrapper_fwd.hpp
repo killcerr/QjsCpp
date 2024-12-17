@@ -3,6 +3,7 @@
 #include "qjs/class.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
+#include "quickjs.h"
 #include <type_traits>
 
 namespace Qjs {
@@ -26,25 +27,23 @@ namespace Qjs {
                 return;
 
             JSClassGCMark *marker = nullptr;
-            if (!markOffsets.empty()) {
-                marker = [](JSRuntime *__rt, JSValue val, JS_MarkFunc *mark_func) {
-                    auto _rt = Runtime::From(__rt);
-                    if (!_rt)
-                        return;
-                    auto &rt = *_rt;
+            marker = [](JSRuntime *__rt, JSValue val, JS_MarkFunc *mark_func) {
+                auto _rt = Runtime::From(__rt);
+                if (!_rt)
+                    return;
+                auto &rt = *_rt;
 
-                    auto ptr = static_cast<T *>(JS_GetOpaque(val, GetClassId(rt)));
-                    if (!ptr)
-                        return;
+                auto ptr = static_cast<T *>(JS_GetOpaque(val, GetClassId(rt)));
+                if (!ptr)
+                    return;
 
-                    for (Value T::*member : markOffsets)
-                        JS_MarkValue(rt, (*ptr.*member).value, mark_func);
-                    
-                    if constexpr (std::is_base_of_v<Class, T>)
-                        if (ptr->jsThis)
-                            JS_MarkValue(rt, ptr->jsThis->value, mark_func);
-                };
-            }
+                for (Value T::*member : markOffsets)
+                    JS_MarkValue(rt, (*ptr.*member).value, mark_func);
+                
+                if constexpr (std::is_base_of_v<Class, T>)
+                    if (ptr->jsThis)
+                        JS_MarkValue(rt, ptr->jsThis->value, mark_func);
+            };
 
             JSClassDef def{
                 name.c_str(),
@@ -68,9 +67,9 @@ namespace Qjs {
         static void SetProto(Value proto);
 
         static Value New(Context &ctx, T *value) {
-            auto obj = JS_NewObjectClass(ctx, GetClassId(ctx.rt));
-            JS_SetOpaque(obj, value);
-            return Value(ctx, obj);
+            Value val = Value::CreateFree(ctx, JS_NewObjectClass(ctx, GetClassId(ctx.rt)));
+            JS_SetOpaque(val, value);
+            return val;
         }
 
         static T *Get(Value value);

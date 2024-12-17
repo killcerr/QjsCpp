@@ -18,9 +18,9 @@ namespace Qjs {
 
             TClass *t = ClassWrapper<TClass>::Get(thisVal);
             if (!t)
-                return JS_DupValue(ctx, ThrowTypeError(ctx, std::format("Expected type {}.", NameOf<TClass>())));
+                return ThrowTypeError(ctx, std::format("Expected type {}.", NameOf<TClass>())).ToUnmanaged();
 
-            return JS_DupValue(ctx, Value::From(ctx, t->*TGetSet));
+            return Value::From(ctx, t->*TGetSet).ToUnmanaged();
         }
 
         template <typename = void>
@@ -35,7 +35,7 @@ namespace Qjs {
 
             TClass *t = ClassWrapper<TClass>::Get(thisVal);
             if (!t)
-                return JS_DupValue(ctx, ThrowTypeError(ctx, std::format("Expected type {}.", NameOf<TClass>())));
+                return ThrowTypeError(ctx, std::format("Expected type {}.", NameOf<TClass>())).ToUnmanaged();
 
             Value set {ctx, JS_UNDEFINED};
             if (argc != 0)
@@ -43,11 +43,11 @@ namespace Qjs {
 
             auto res = set.As<TValue>();
             if (!res.IsOk())
-                return JS_DupValue(ctx, res.GetErr());
+                return res.GetErr().ToUnmanaged();
 
             t->*TGetSet = res.GetOk();
 
-            return JS_DupValue(ctx, Value::From(ctx, t->*TGetSet));
+            return Value::From(ctx, t->*TGetSet).ToUnmanaged();
         }
     };
 

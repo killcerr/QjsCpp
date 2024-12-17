@@ -9,9 +9,14 @@ namespace Qjs {
         Runtime() {
             rt = JS_NewRuntime();
             JS_SetRuntimeOpaque(rt, this);
+            JS_SetDumpFlags(rt, 0xffffffffffffffff);
         }
 
         Runtime(Runtime const &copy) = delete;
+
+        ~Runtime() {
+            JS_FreeRuntime(rt);
+        }
 
         operator JSRuntime *() {
             return rt;

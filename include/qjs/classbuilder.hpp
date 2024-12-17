@@ -38,22 +38,22 @@ namespace Qjs {
             JsResult<std::tuple<TArgs...>> optArgs = Value::UnpackArgs<TArgs...>(ctx, argc, argv);
 
             if (!optArgs.IsOk())
-                return JS_DupValue(ctx, optArgs.GetErr());
+                return optArgs.GetErr().ToUnmanaged();
 
             T *value = std::apply(TCtorFunc, optArgs.GetOk());
 
             Value proto = thisVal.Prototype();
 
-            Value obj {ctx, JS_NewObjectProtoClass(ctx, proto, ClassWrapper<T>::GetClassId(ctx.rt))};
+            Value obj = Value::CreateFree(ctx, JS_NewObjectProtoClass(ctx, proto, ClassWrapper<T>::GetClassId(ctx.rt)));
 
             if (obj.IsException()) {
                 delete value;
-                return JS_DupValue(ctx, obj);
+                return obj.ToUnmanaged();
             }
 
             JS_SetOpaque(obj, value);
 
-            return JS_DupValue(ctx, obj);
+            return obj.ToUnmanaged();
         }
 
         template <typename ...TArgs>
@@ -64,7 +64,7 @@ namespace Qjs {
         public:
         template <typename ...TArgs>
         ClassBuilder &Ctor() {
-            ctor = Value(ctx, JS_NewCFunction2(ctx, CtorInvoke<DefaultConstructor<TArgs...>, TArgs...>, Name.c_str(), sizeof...(TArgs), JS_CFUNC_constructor, 0));
+            ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, CtorInvoke<DefaultConstructor<TArgs...>, TArgs...>, Name.c_str(), sizeof...(TArgs), JS_CFUNC_constructor, 0));
             JS_SetConstructor(ctx, ctor, prototype);
             return *this;
         }
@@ -97,7 +97,7 @@ namespace Qjs {
         }
 
         void Build(Value object) {
-            object[Name] = ctor;
+            object[Name] = Value(ctor);
         }
 
         void Build(Module &mod) {

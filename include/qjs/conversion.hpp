@@ -23,7 +23,7 @@ namespace Qjs {
         static constexpr bool Implemented = true;
 
         static Value Wrap(Context &ctx, TInt value) {
-            return Value(ctx, JS_NewInt64(ctx, value));
+            return Value::CreateFree(ctx, JS_NewInt64(ctx, value));
         }
 
         static JsResult<TInt> Unwrap(Value const &value) {
@@ -47,7 +47,7 @@ namespace Qjs {
         static constexpr bool Implemented = true;
 
         static Value Wrap(Context &ctx, TFloat value) {
-            return Value(ctx, JS_NewFloat64(ctx, int64_t(value)));
+            return Value::CreateFree(ctx, JS_NewFloat64(ctx, int64_t(value)));
         }
 
         static JsResult<TFloat> Unwrap(Value const &value) {
@@ -91,7 +91,7 @@ namespace Qjs {
         static constexpr bool Implemented = true;
 
         static Value Wrap(Context &ctx, bool value) {
-            return Value(ctx, JS_NewBool(ctx, value));
+            return Value::CreateFree(ctx, JS_NewBool(ctx, value));
         }
 
         static JsResult<bool> Unwrap(Value const &value) {
@@ -104,7 +104,7 @@ namespace Qjs {
         static constexpr bool Implemented = true;
 
         static Value Wrap(Context &ctx, std::string const &value) {
-            return Value(ctx,  JS_NewStringLen(ctx, value.c_str(), value.size()));
+            return Value::CreateFree(ctx, JS_NewStringLen(ctx, value.c_str(), value.size()));
         }
 
         static JsResult<std::string> Unwrap(Value const &value) {
@@ -132,14 +132,13 @@ namespace Qjs {
 
             auto args = Value::UnpackArgs<TArgs...>(ctx, argc, argv);
             if (!args.IsOk())
-                return JS_DupValue(ctx, args.GetErr());
+                return args.GetErr().ToUnmanaged();
             
             if constexpr (std::is_same_v<TReturn, void>) {
                 std::apply(std::forward<TFun>(conv->fun), args.GetOk());
                 return JS_UNDEFINED;
             } else {
-                auto result = Value::From(ctx, std::apply(std::forward<TFun>(conv->fun), args.GetOk()));
-                return JS_DupValue(ctx, result);
+                return Value::From(ctx, std::apply(std::forward<TFun>(conv->fun), args.GetOk())).ToUnmanaged();
             }
         }
 
@@ -172,8 +171,7 @@ namespace Qjs {
         }
 
         static JsResult<T *> Unwrap(Value value) {
-            T *out = Wrapper::Get(value);;
-            out->jsThis = value;
+            T *out = Wrapper::Get(value);
             return out;
         }
     };

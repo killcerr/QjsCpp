@@ -4,6 +4,8 @@
 #include "qjs/value_fwd.hpp"
 #include "quickjs.h"
 #include <cstddef>
+#include <iostream>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 
@@ -15,6 +17,10 @@ namespace Qjs {
 
         Module(Context &ctx, std::string &&name) : Name(name) {
             mod = JS_NewCModule(ctx, Name.c_str(), LoadRaw);
+        }
+
+        ~Module() {
+            exports.clear();
         }
 
         static int LoadRaw(JSContext *__ctx, JSModuleDef *m) {
@@ -31,7 +37,7 @@ namespace Qjs {
 
         int Load() {
             for (auto &pair : exports) {
-                int res = JS_SetModuleExport(pair.second.ctx, mod, pair.first.c_str(), JS_DupValue(pair.second.ctx, pair.second));
+                int res = JS_SetModuleExport(pair.second.ctx, mod, pair.first.c_str(), pair.second.ToUnmanaged());
                 if (res < 0)
                     return res;
             }

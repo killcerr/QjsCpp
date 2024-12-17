@@ -54,10 +54,11 @@ namespace Qjs {
 
         Value meta (ctx, metaVal);
 
-        JS_FreeValue(ctx, meta);
-
-        meta["url"] = Value::From(ctx, requestedSource);
         meta["main"] = Value::From(ctx, false);
+        
+        meta["url"] = Value::From(ctx, requestedSource);
+
+        JS_FreeValue(ctx, metaVal);
             
         return mod;
     }
