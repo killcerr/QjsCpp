@@ -80,7 +80,7 @@ namespace Qjs {
         static JsResult<std::optional<T>> Unwrap(Value const &value) {
             auto tag = value.value.tag;
             if (tag == JS_TAG_UNDEFINED || tag == JS_TAG_NULL || tag == JS_TAG_UNINITIALIZED)
-                return std::nullopt;
+                return std::optional<T>(std::nullopt);
 
             auto val = Conversion<T>::Unwrap(value);
 

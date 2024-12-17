@@ -3,6 +3,7 @@
 #include "qjs/class.hpp"
 #include "qjs/classwrapper_fwd.hpp"
 #include "qjs/context_fwd.hpp"
+#include "qjs/conversion_fwd.hpp"
 #include "qjs/value_fwd.hpp"
 #include "quickjs.h"
 #include <string>
@@ -26,7 +27,7 @@ namespace Qjs {
         }
 
         private:
-        template <auto TCtorFunc, typename ...TArgs>
+        template <auto TCtorFunc, bool TPtr, typename ...TArgs>
         static JSValue CtorInvoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
             auto _ctx = Context::From(__ctx);
             if (!_ctx)
@@ -40,20 +41,24 @@ namespace Qjs {
             if (!optArgs.IsOk())
                 return optArgs.GetErr().ToUnmanaged();
 
-            T *value = std::apply(TCtorFunc, optArgs.GetOk());
+            if constexpr (TPtr) {
+                T *value = std::apply(TCtorFunc, optArgs.GetOk());
 
-            Value proto = thisVal.Prototype();
+                Value proto = thisVal.Prototype();
 
-            Value obj = Value::CreateFree(ctx, JS_NewObjectProtoClass(ctx, proto, ClassWrapper<T>::GetClassId(ctx.rt)));
+                Value obj = Value::CreateFree(ctx, JS_NewObjectProtoClass(ctx, proto, ClassWrapper<T>::GetClassId(ctx.rt)));
 
-            if (obj.IsException()) {
-                delete value;
+                if (obj.IsException()) {
+                    delete value;
+                    return obj.ToUnmanaged();
+                }
+
+                JS_SetOpaque(obj, value);
+
                 return obj.ToUnmanaged();
+            } else {
+                return Conversion<T>::Wrap(ctx, std::apply(TCtorFunc, optArgs.GetOk())).ToUnmanaged();
             }
-
-            JS_SetOpaque(obj, value);
-
-            return obj.ToUnmanaged();
         }
 
         static JSValue NoCtorInvoke(JSContext *ctx, JSValue this_val, int argc, JSValue *argv) {
@@ -63,9 +68,15 @@ namespace Qjs {
         template <auto TCtor>
         struct CtorWrapper;
 
-        template <typename TClass, typename ...TArgs, TClass (*TCtor)(TArgs...)>
+        template <typename ...TArgs, T (*TCtor)(TArgs...)>
         struct CtorWrapper<TCtor> {
-            static constexpr auto Invoke = CtorInvoke<TCtor, std::decay_t<TArgs>...>;
+            static constexpr auto Invoke = CtorInvoke<TCtor, false, std::decay_t<TArgs>...>;
+            static constexpr auto ArgCount = sizeof...(TArgs);
+        };
+
+        template <typename ...TArgs, T *(*TCtor)(TArgs...)>
+        struct CtorWrapper<TCtor> {
+            static constexpr auto Invoke = CtorInvoke<TCtor, true, std::decay_t<TArgs>...>;
             static constexpr auto ArgCount = sizeof...(TArgs);
         };
 
