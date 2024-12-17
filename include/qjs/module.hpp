@@ -4,8 +4,6 @@
 #include "qjs/value_fwd.hpp"
 #include "quickjs.h"
 #include <cstddef>
-#include <iostream>
-#include <ostream>
 #include <string>
 #include <unordered_map>
 
