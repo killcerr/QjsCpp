@@ -87,7 +87,7 @@ namespace Qjs {
             if (!val.IsOk())
                 return val.GetErr();
 
-            return val.GetOk();
+            return std::optional<T>(val.GetOk());
         }
     };
 
