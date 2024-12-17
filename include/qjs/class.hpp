@@ -7,5 +7,6 @@ namespace Qjs {
     class Class {
         public:
         std::optional<Value> jsThis;
+        bool managed = true;
     };
 }
