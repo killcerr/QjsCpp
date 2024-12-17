@@ -3,6 +3,7 @@
 #include "qjs/classbuilder.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <ostream>
@@ -76,6 +77,9 @@ int main(int argc, char **argv) {
     auto global = Qjs::Value::Global(ctx);
 
     global["log"] = Qjs::Value::RawFunction<Log>(ctx, "log");
+
+    auto logfn = (*global["log"]).ToFunction<void, std::string, int>();
+    logfn("test!", 5);
 
     auto &testMod = ctx.AddModule("#test");
 

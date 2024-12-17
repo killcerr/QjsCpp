@@ -4,8 +4,31 @@
 #include "quickjs.h"
 #include "value_fwd.hpp"
 #include <format>
+#include <optional>
 
 namespace Qjs {
+    template <>
+    struct JsResult<void> {
+        std::optional<Value> const Values;
+
+        JsResult() : Values(std::nullopt) {}
+        JsResult(Value &&err) : Values({err}) {}
+        JsResult(Value const &err) : Values({err}) {}
+
+        bool IsOk() {
+            return !Values.has_value();
+        }
+
+        void GetOk() noexcept(false) {
+            if (!IsOk())
+                throw GetErr();
+        }
+
+        struct Value GetErr() {
+            return *Values;
+        }
+    };
+
     template <typename TClass, typename TValue, TValue (TClass::*TGetSet)>
     struct Value::GetSetWrapper<TGetSet> {
         static JSValue Get(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {

@@ -362,6 +362,8 @@ namespace Qjs {
                 
                 if constexpr (!std::is_same_v<TReturn, void>)
                     return result.As<TReturn>();
+                else
+                    return JsResult<TReturn>();
             };
         }
 
@@ -379,6 +381,8 @@ namespace Qjs {
                 
                 if constexpr (!std::is_same_v<TReturn, void>)
                     return result.As<TReturn>();
+                else
+                    return JsResult<TReturn>();
             };
         }
 
