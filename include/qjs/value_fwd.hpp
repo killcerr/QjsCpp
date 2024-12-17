@@ -192,12 +192,12 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
 
-                std::tuple<TArgs...> args = optArgs.GetOk();
+                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, args);
@@ -220,12 +220,12 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
 
-                std::tuple<TArgs...> args = optArgs.GetOk();
+                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
                 if constexpr (std::is_same_v<TReturn, void>) {
                     std::apply(TFun, args);
@@ -248,12 +248,12 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
 
-                std::tuple<TArgs...> args = optArgs.GetOk();
+                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
                 auto thisRes = thisVal.As<TThis *>();;
                 if (!thisRes.IsOk())
@@ -282,12 +282,12 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<TArgs...>> optArgs = UnpackArgs<TArgs...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
 
-                std::tuple<TArgs...> args = optArgs.GetOk();
+                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
 
                 auto thisRes = thisVal.As<TThis *>();;
                 if (!thisRes.IsOk())
