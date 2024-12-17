@@ -63,7 +63,7 @@ namespace Qjs {
         template <auto TCtor>
         struct CtorWrapper;
 
-        template <typename TClass, typename ...TArgs, TClass *(*TCtor)(TArgs...)>
+        template <typename TClass, typename ...TArgs, TClass (*TCtor)(TArgs...)>
         struct CtorWrapper<TCtor> {
             static constexpr auto Invoke = CtorInvoke<TCtor, std::decay_t<TArgs>...>;
             static constexpr auto ArgCount = sizeof...(TArgs);
