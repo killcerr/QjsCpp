@@ -30,19 +30,19 @@ namespace Qjs {
         }
         RequireNonNull(RequireNonNull const &copy) : Ptr(copy.Ptr) {}
 
-        T operator * () {
+        T operator * () const {
             return *Ptr;
         }
 
-        operator T * () {
+        operator T * () const {
             return Ptr;
         }
 
-        T *operator -> () {
+        T *operator -> () const {
             return Ptr;
         }
 
-        operator bool () {
+        operator bool () const {
             return Ptr;
         }
     };
