@@ -4,7 +4,6 @@
 #include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
 #include "quickjs.h"
-#include <optional>
 #include <type_traits>
 
 namespace Qjs {
@@ -67,7 +66,7 @@ namespace Qjs {
 
         static void SetProto(Value proto);
 
-        static Value New(Context &ctx, T *value, std::optional<Value> proto) {
+        static Value New(Context &ctx, T *value) {
             Value val = Value::CreateFree(ctx, JS_NewObjectClass(ctx, GetClassId(ctx.rt)));
             JS_SetOpaque(val, value);
             return val;
