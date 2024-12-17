@@ -172,6 +172,8 @@ namespace Qjs {
         using Wrapper = ClassWrapper<T>;
 
         static Value Wrap(Context &ctx, T *cl) {
+            if (cl->jsThis)
+                return *cl->jsThis;
             return Wrapper::New(ctx, cl);
         }
 
