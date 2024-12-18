@@ -1,11 +1,12 @@
 #pragma once
 
-#include "qjs/class.hpp"
 #include "qjs/classwrapper_fwd.hpp"
 #include "qjs/context_fwd.hpp"
+#include "qjs/functionwrapper_fwd.hpp"
 #include "qjs/util.hpp"
 #include "quickjs.h"
 #include "value_fwd.hpp"
+#include "qjs/class.hpp"
 
 #include "conversion_fwd.hpp"
 #include <cassert>
@@ -44,6 +45,26 @@ namespace Qjs {
 
         operator bool () const {
             return Ptr;
+        }
+    };
+
+
+    template <typename T>
+        requires Conversion<T>::Implemented
+    struct PassJsThis<T> final {
+        Value jsThis;
+        T value;
+
+        operator T () const {
+            return value;
+        }
+
+        T operator * () const {
+            return value;
+        }
+
+        T *operator -> () const {
+            return &value;
         }
     };
 
@@ -167,7 +188,7 @@ namespace Qjs {
 
             Value thisVal = Value(ctx, this_val);
 
-            auto args = Value::UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
+            auto args = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
             if (!args.IsOk())
                 return args.GetErr().ToUnmanaged();
             
@@ -238,6 +259,19 @@ namespace Qjs {
 
             T *out = Wrapper::Get(value);
             return RequireNonNull<T>(out);
+        }
+    };
+
+    template <typename T>
+        requires Conversion<T>::Implemented
+    struct Conversion<PassJsThis<T>> final {
+        static constexpr bool Implemented = true;
+
+        static JsResult<PassJsThis<T>> Unwrap(Value const &value) {
+            JsResult<T> result = Conversion<T>::Unwrap(value);
+            if (!result.IsOk())
+                return result.GetErr();
+            return PassJsThis<T> {value, result.GetOk()};
         }
     };
     

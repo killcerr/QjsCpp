@@ -1,8 +1,8 @@
 #pragma once
 
-#include "qjs/class.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
+#include "qjs/class.hpp"
 #include "quickjs.h"
 #include <type_traits>
 

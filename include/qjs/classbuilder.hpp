@@ -1,10 +1,11 @@
 #pragma once
 
-#include "qjs/class.hpp"
-#include "qjs/classwrapper_fwd.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/conversion_fwd.hpp"
+#include "qjs/functionwrapper_fwd.hpp"
 #include "qjs/value_fwd.hpp"
+#include "qjs/classwrapper_fwd.hpp"
+#include "qjs/class.hpp"
 #include "quickjs.h"
 #include <string>
 #include <type_traits>
@@ -36,7 +37,7 @@ namespace Qjs {
 
             Value thisVal {ctx, this_val};
             
-            JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = Value::UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
+            JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
             if (!optArgs.IsOk())
                 return optArgs.GetErr().ToUnmanaged();

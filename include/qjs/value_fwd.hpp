@@ -10,46 +10,16 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "context_fwd.hpp"
 #include "conversion_fwd.hpp"
+#include "qjs/functionwrapper_fwd.hpp"
 #include "qjs/util.hpp"
 #include "quickjs.h"
+#include "result_fwd.hpp"
 
 namespace Qjs {
-    struct Value;
-
-    template <typename T>
-    struct JsResult final {
-        private:
-        std::variant<T, Value> const Values;
-
-        public:
-        JsResult(T ok) : Values({ok}) {}
-        JsResult(Value &&err) : Values({err}) {}
-        JsResult(Value const &err) : Values({err}) {}
-
-        bool IsOk() {
-            return Values.index() == 0;
-        }
-
-        T GetOk() noexcept(false) {
-            if (!IsOk())
-                throw GetErr();
-            return std::get<0>(Values);
-        }
-
-        T OkOr(T &&other) {
-            if (IsOk())
-                return GetOk();
-            return other;
-        }
-
-        Value GetErr();
-    };
-
     struct Value final {
         template <typename T>
             requires (std::is_same_v<T, std::string> || std::is_same_v<T, size_t>)
@@ -170,163 +140,6 @@ namespace Qjs {
                 return v;
             }
         }
-
-        public:
-        template <typename ...TArgs>
-        struct UnpackWrapper;
-
-        template <typename ...TArgs>
-            requires (Conversion<TArgs>::Implemented,...)
-        struct UnpackWrapper<TArgs...> {
-            static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
-                return Value::UnpackArgs<TArgs...>(ctx, thisVal, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
-            }
-        };
-
-        template <typename ...TArgs>
-            requires ((Conversion<TArgs>::Implemented,...))
-        struct UnpackWrapper<Value, TArgs...> {
-            static JsResult<std::tuple<Value, TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
-                auto result = Value::UnpackArgs<TArgs...>(ctx, thisVal, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
-                if (!result.IsOk())
-                    return result.GetErr();
-
-                return std::tuple_cat(std::tuple<Value> {thisVal}, result.GetOk());
-            }
-        };
-
-        private:
-        template <auto TFun>
-        struct FunctionWrapper;
-
-        template <typename TReturn, typename ...TArgs, TReturn (*TFun)(TArgs...)>
-        struct FunctionWrapper<TFun> {
-            static constexpr size_t ArgCount = sizeof...(TArgs);
-
-            static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
-                auto _ctx = Context::From(__ctx);
-                if (!_ctx)
-                    return JS_ThrowPlainError(__ctx, "Whar");
-                auto &ctx = *_ctx;
-
-                Value thisVal {ctx, this_val};
-                
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
-
-                if (!optArgs.IsOk())
-                    return optArgs.GetErr().ToUnmanaged();
-
-                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
-
-                if constexpr (std::is_same_v<TReturn, void>) {
-                    std::apply(TFun, args);
-                    return Value::Undefined(ctx).ToUnmanaged();
-                } else {
-                    return Value::From(ctx, std::apply(TFun, args)).ToUnmanaged();
-                }
-            }
-        };
-
-        template <typename TReturn, typename ...TArgs, std::function<TReturn (TArgs...)> TFun>
-        struct FunctionWrapper<TFun> {
-            static constexpr size_t ArgCount = sizeof...(TArgs);
-
-            static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
-                auto _ctx = Context::From(__ctx);
-                if (!_ctx)
-                    return JS_ThrowPlainError(__ctx, "Whar");
-                auto &ctx = *_ctx;
-
-                Value thisVal {ctx, this_val};
-                
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
-
-                if (!optArgs.IsOk())
-                    return optArgs.GetErr().ToUnmanaged();
-
-                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
-
-                if constexpr (std::is_same_v<TReturn, void>) {
-                    std::apply(TFun, args);
-                    return Value::Undefined(ctx).ToUnmanaged();
-                } else {
-                    return Value::From(ctx, std::apply(TFun, args)).ToUnmanaged();
-                }
-            }
-        };
-
-        template <typename TReturn, typename TThis, typename ...TArgs, TReturn (TThis::*TFun)(TArgs...)>
-        struct FunctionWrapper<TFun> {
-            static constexpr size_t ArgCount = sizeof...(TArgs);
-
-            static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
-                auto _ctx = Context::From(__ctx);
-                if (!_ctx)
-                    return JS_ThrowPlainError(__ctx, "Whar");
-                auto &ctx = *_ctx;
-
-                Value thisVal {ctx, this_val};
-                
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
-
-                if (!optArgs.IsOk())
-                    return optArgs.GetErr().ToUnmanaged();
-
-                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
-
-                auto thisRes = thisVal.As<RequireNonNull<TThis>>();
-
-                if (!thisRes.IsOk())
-                    return thisRes.GetErr().ToUnmanaged();
-
-                TThis *_this = thisRes.GetOk();
-
-                if constexpr (std::is_same_v<TReturn, void>) {
-                    std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args));
-                    return Value::Undefined(ctx).ToUnmanaged();
-                } else {
-                    return Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))).ToUnmanaged();
-                }
-            }
-        };
-
-        template <typename TReturn, typename TThis, typename ...TArgs, TReturn (TThis::*TFun)(TArgs...) const>
-        struct FunctionWrapper<TFun> {
-            static constexpr size_t ArgCount = sizeof...(TArgs);
-
-            static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
-                auto _ctx = Context::From(__ctx);
-                if (!_ctx)
-                    return JS_ThrowPlainError(__ctx, "Whar");
-                auto &ctx = *_ctx;
-
-                Value thisVal {ctx, this_val};
-                
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
-
-                if (!optArgs.IsOk())
-                    return optArgs.GetErr().ToUnmanaged();
-
-                std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
-
-                auto thisRes = thisVal.As<RequireNonNull<TThis>>();
-                
-                if (!thisRes.IsOk())
-                    return thisRes.GetErr().ToUnmanaged();
-
-                TThis *_this = thisRes.GetOk();
-
-                if constexpr (std::is_same_v<TReturn, void>) {
-                    std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args));
-                    return Value::Undefined(ctx).ToUnmanaged();
-                } else {
-                    return Value::From(ctx, std::apply(TFun, std::tuple_cat(std::tuple<TThis *>(_this), args))).ToUnmanaged();
-                }
-            }
-        };
-
-        template <auto TGetSet>
-        struct GetSetWrapper;
 
         template <auto TFun>
             requires requires (Value thisObj, std::vector<Value> params) {
@@ -480,9 +293,4 @@ namespace Qjs {
             return JS_DupValue(ctx, value);
         }
     };
-
-    template <typename T>
-    Value JsResult<T>::GetErr() {
-        return std::get<1>(Values);
-    }
 }

@@ -8,4 +8,7 @@ namespace Qjs {
 
     template <typename T>
     struct RequireNonNull;
+
+    template <typename T>
+    struct PassJsThis;
 }

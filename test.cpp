@@ -3,6 +3,7 @@
 #include "qjs/classbuilder.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/conversion.hpp"
+#include "qjs/conversion_fwd.hpp"
 #include "qjs/runtime_fwd.hpp"
 #include "qjs/value_fwd.hpp"
 #include "quickjs.h"
@@ -24,8 +25,8 @@ struct Test : public Qjs::Class {
         std::println(std::cerr, "destruction");
     }
 
-    void wawa(Qjs::Value jsThis, std::string s) {
-        std::println(std::cerr, "{}: {}, {}", s, x, y);
+    void wawa(Qjs::Value jsThis, Qjs::PassJsThis<std::string> s) {
+        std::println(std::cerr, "{}: {}, {}", *s, x, y);
     }
 };
 
@@ -108,6 +109,7 @@ int main(int argc, char **argv) {
     rt.SetModuleLoaderFunc<Normalize, Load>();
     std::println(std::cerr, "test 2 begin");
     RunTest(rt);
+    rt.Gc();
     std::println(std::cerr, "test 2 begin");
     RunTest(rt);
 
