@@ -2,9 +2,7 @@
 
 #include "qjs/context_fwd.hpp"
 #include "qjs/value_fwd.hpp"
-#include "qjs/class.hpp"
 #include "quickjs.h"
-#include <type_traits>
 
 namespace Qjs {
     template <typename T>
@@ -50,9 +48,6 @@ namespace Qjs {
                     auto &rt = *_rt;
                     
                     auto ptr = static_cast<T*>(JS_GetOpaque(obj, GetClassId(rt)));
-                    if constexpr (std::is_base_of_v<Class, T>)
-                        if (!ptr->managed)
-                            return;
                     delete ptr;
                 },
                 marker,
