@@ -184,20 +184,25 @@ namespace Qjs {
         void AddGetterSetter(Context &ctx, std::string &&name);
 
         template <typename TReturn, typename ...TArgs>
+        JsResult<TReturn> Invoke(TArgs... args) {
+            std::array<JSValue, sizeof...(TArgs)> argsRaw { Value::From(ctx, std::forward<TArgs>(args)).ToUnmanaged()... };
+            Value result = CreateFree(ctx, JS_Call(ctx, value, JS_UNDEFINED, sizeof...(TArgs), argsRaw.data()));
+            for (auto &arg : argsRaw)
+                JS_FreeValue(ctx, arg);
+
+            if (result.IsException())
+                return result;
+            
+            if constexpr (!std::is_same_v<TReturn, void>)
+                return result.As<TReturn>();
+            else
+                return JsResult<TReturn>();
+        }
+
+        template <typename TReturn, typename ...TArgs>
         std::function<JsResult<TReturn> (TArgs...)> ToFunction() {
             return [&](TArgs ...args) -> JsResult<TReturn> {
-                std::array<JSValue, sizeof...(TArgs)> argsRaw { Value::From(ctx, std::forward<TArgs>(args)).ToUnmanaged()... };
-                Value result = CreateFree(ctx, JS_Call(ctx, value, JS_UNDEFINED, sizeof...(TArgs), argsRaw.data()));
-                for (auto &arg : argsRaw)
-                    JS_FreeValue(ctx, arg);
-
-                if (result.IsException())
-                    return result;
-                
-                if constexpr (!std::is_same_v<TReturn, void>)
-                    return result.As<TReturn>();
-                else
-                    return JsResult<TReturn>();
+                return Invoke<TReturn, TArgs...>(args...);
             };
         }
 
