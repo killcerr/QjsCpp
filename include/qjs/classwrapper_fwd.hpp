@@ -6,6 +6,11 @@
 
 namespace Qjs {
     template <typename T>
+    struct ClassDeleteTraits {
+        static constexpr bool ShouldDelete = true;
+    };
+
+    template <typename T>
     struct ClassWrapper {
         private:
         inline static JSClassID classId = 0;
@@ -42,6 +47,9 @@ namespace Qjs {
             JSClassDef def{
                 name.c_str(),
                 [](JSRuntime *__rt, JSValue obj) noexcept {
+                    if (!ClassDeleteTraits<T>::ShouldDelete)
+                        return;
+
                     auto _rt = Runtime::From(__rt);
                     if (!_rt)
                         return;

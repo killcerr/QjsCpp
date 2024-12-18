@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <format>
 #include <tuple>
+#include <type_traits>
 
 namespace Qjs {
     template <typename ...TArgs, std::size_t... TIndices>

@@ -1,5 +1,6 @@
 #pragma once
 
 namespace Qjs {
-    class Class {};
+    class ManagedClass {};
+    class UnmanagedClass {};
 }

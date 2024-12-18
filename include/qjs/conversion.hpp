@@ -22,8 +22,7 @@
 
 namespace Qjs {
     template <typename T>
-        requires std::is_base_of_v<Class, T>
-    struct RequireNonNull<T> final {
+    struct RequireNonNull final {
         T *const Ptr;
 
         RequireNonNull(T *value) : Ptr(value) {
@@ -219,7 +218,7 @@ namespace Qjs {
     };
 
     template <typename T>
-        requires std::is_base_of_v<Class, T>
+        requires std::is_base_of_v<ManagedClass, T>
     struct Conversion<T *> final {
         static constexpr bool Implemented = true;
         using Wrapper = ClassWrapper<T>;
@@ -244,10 +243,35 @@ namespace Qjs {
     };
 
     template <typename T>
-        requires std::is_base_of_v<Class, T>
-    struct Conversion<RequireNonNull<T>> final {
+        requires std::is_base_of_v<UnmanagedClass, T>
+    struct Conversion<T *> final {
         static constexpr bool Implemented = true;
         using Wrapper = ClassWrapper<T>;
+
+        static Value Wrap(Context &ctx, T *cl) {
+            if (cl == nullptr)
+                return Value::Null(ctx);
+
+            return Wrapper::New(ctx, cl);
+        }
+
+        static JsResult<T *> Unwrap(Value const &value) {
+            if (value.IsNullish())
+                return nullptr;
+
+            if (!Wrapper::IsThis(value))
+                return Value::ThrowTypeError(value.ctx, std::format("Expected {}", NameOf<T>()));
+
+            T *out = Wrapper::Get(value);
+            return out;
+        }
+    };
+
+    template <typename T>
+        requires (std::is_base_of_v<ManagedClass, T> || std::is_base_of_v<UnmanagedClass, T>)
+    struct Conversion<RequireNonNull<T>> final {
+        static constexpr bool Implemented = true;
+        using Wrapper = Conversion<T *>::Wrapper;
 
         static Value Wrap(Context &ctx, RequireNonNull<T> cl) {
             return Wrapper::New(ctx, cl);
@@ -281,10 +305,10 @@ namespace Qjs {
     
 
     template <typename T>
-        requires (std::is_base_of_v<Class, T> && std::is_copy_constructible_v<T>)
+        requires (std::is_base_of_v<ManagedClass, T> && std::is_copy_constructible_v<T>)
     struct Conversion<T> final {
         static constexpr bool Implemented = true;
-        using Wrapper = ClassWrapper<T>;
+        using Wrapper = Conversion<T *>::Wrapper;
 
         static Value Wrap(Context &ctx, T const &cl) {
             return Conversion<RequireNonNull<T>>::Wrap(ctx, RequireNonNull<T>(new T(cl)));

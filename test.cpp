@@ -1,12 +1,11 @@
 #include "include/qjs.hpp"
 #include "qjs/class.hpp"
-#include "qjs/classbuilder.hpp"
+#include "qjs/classbuilder_fwd.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/conversion.hpp"
 #include "qjs/conversion_fwd.hpp"
 #include "qjs/runtime_fwd.hpp"
 #include "qjs/value_fwd.hpp"
-#include "quickjs.h"
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -16,7 +15,7 @@
 
 #define JS_SOURCE(...) #__VA_ARGS__
 
-struct Test : public Qjs::Class {
+struct Test : public Qjs::ManagedClass {
     int x;
     float const y;
 
@@ -30,6 +29,12 @@ struct Test : public Qjs::Class {
     }
 };
 
+struct Unmanaged : public Qjs::UnmanagedClass {
+    int x, y;
+
+    Unmanaged(int x, int y) : x(x), y(y) {}
+};
+
 char const Src[] = JS_SOURCE(
     // import {wawa} from "test";
     import {Test} from "#test";
@@ -41,7 +46,8 @@ char const Src[] = JS_SOURCE(
     test.x += 1;
     log(test.x, test.y);
     test.wawa("wawa");
-    testFun([test, test, test, test]);
+    let unmanaged = testFun([test, test, test, test]);
+    log(unmanaged.x, unmanaged.y);
 );
 
 char const TestModSrc[] = JS_SOURCE(
@@ -63,8 +69,11 @@ Qjs::Value Log(Qjs::Value thisVal, std::vector<Qjs::Value> &args) {
     return Qjs::Value::Undefined(thisVal.ctx);
 }
 
-void TestFun(std::vector<Qjs::RequireNonNull<Test>> t) {
+Unmanaged unmanaged {1, 2};
+
+Unmanaged *TestFun(std::vector<Qjs::RequireNonNull<Test>> t) {
     std::println(std::cerr, "{}", t.size());
+    return &unmanaged;
 }
 
 std::string Normalize(Qjs::Context &ctx, std::string requesting, std::string requested) {
@@ -93,6 +102,11 @@ void RunTest(Qjs::Runtime &rt) {
         .Field<&Test::x>("x")
         .Field<&Test::y>("y")
         .Method<&Test::wawa>("wawa")
+        .Build(testMod);
+
+    Qjs::ClassBuilder<Unmanaged>(ctx, "TestUnmanaged")
+        .Field<&Unmanaged::x>("x")
+        .Field<&Unmanaged::y>("y")
         .Build(testMod);
 
     auto &test2Mod = ctx.AddModule("#test2");
