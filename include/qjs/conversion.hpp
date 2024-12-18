@@ -3,6 +3,7 @@
 #include "qjs/classwrapper_fwd.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/functionwrapper_fwd.hpp"
+#include "qjs/result_fwd.hpp"
 #include "qjs/util.hpp"
 #include "quickjs.h"
 #include "value_fwd.hpp"
@@ -168,12 +169,13 @@ namespace Qjs {
     };
 
     template <typename TReturn, typename ...TArgs>
+        requires (Conversion<TReturn>::Implemented || std::is_same_v<TReturn, void>)
     struct Conversion<std::function<TReturn(TArgs...)>> final {
         static constexpr bool Implemented = true;
 
         using TFun = std::function<TReturn(TArgs...)>;
         using Wrapper = ClassWrapper<Conversion<TFun>>;
-        std::function<TReturn(TArgs...)> fun;
+        TFun fun;
 
         static JSValue Invoke(JSContext *__ctx, JSValue func_obj, JSValue this_val, int argc, JSValue *argv, int flags) {
             auto _ctx = Context::From(__ctx);
@@ -212,7 +214,60 @@ namespace Qjs {
                 return Wrapper::Get(value)->fun;
 
             return (TFun) [&](TArgs ...args) -> TReturn {
-                return value.ToFunction<TReturn, TArgs...>()(args...).GetOk();
+                if constexpr (std::is_same_v<TReturn, void>)
+                    value.Invoke<TReturn, TArgs...>(args...);
+                else value.Invoke<TReturn, TArgs...>(args...).GetOk();
+            };
+        }
+    };
+
+    template <typename TReturn, typename ...TArgs>
+        requires (Conversion<TReturn>::Implemented || std::is_same_v<TReturn, void>)
+    struct Conversion<std::function<JsResult<TReturn> (TArgs...)>> final {
+        static constexpr bool Implemented = true;
+
+        using TFun = std::function<JsResult<TReturn> (TArgs...)>;
+        using Wrapper = ClassWrapper<Conversion<TFun>>;
+        TFun fun;
+
+        static JSValue Invoke(JSContext *__ctx, JSValue func_obj, JSValue this_val, int argc, JSValue *argv, int flags) {
+            auto _ctx = Context::From(__ctx);
+            if (!_ctx)
+                return JS_ThrowPlainError(__ctx, "Whar");
+
+            auto &ctx = *_ctx;
+            Value funcObj {ctx, func_obj};
+
+            Conversion *conv = Wrapper::Get(funcObj);
+
+            Value thisVal = Value(ctx, this_val);
+
+            auto args = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
+            if (!args.IsOk())
+                return args.GetErr().ToUnmanaged();
+            
+            if constexpr (std::is_same_v<TReturn, void>) {
+                std::apply(std::forward<TFun>(conv->fun), args.GetOk());
+                return JS_UNDEFINED;
+            } else {
+                return Value::From(ctx, std::apply(std::forward<TFun>(conv->fun), args.GetOk())).ToUnmanaged();
+            }
+        }
+
+        static Value Wrap(Context &ctx, TFun f) {
+            Wrapper::RegisterClass(ctx, "Function", Invoke);
+
+            return Wrapper::New(ctx, new Conversion {f});
+        }
+
+        static JsResult<TFun> Unwrap(Value &value) {
+            Wrapper::RegisterClass(value.ctx, "Function", Invoke);
+
+            if (JS_GetClassID(value) == Wrapper::GetClassId(value.ctx.rt))
+                return Wrapper::Get(value)->fun;
+
+            return (TFun) [&](TArgs ...args) -> JsResult<TReturn> {
+                return value.Invoke<TReturn, TArgs...>(args...);
             };
         }
     };

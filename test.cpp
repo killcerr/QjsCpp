@@ -4,6 +4,7 @@
 #include "qjs/context_fwd.hpp"
 #include "qjs/conversion.hpp"
 #include "qjs/conversion_fwd.hpp"
+#include "qjs/result_fwd.hpp"
 #include "qjs/runtime_fwd.hpp"
 #include "qjs/value_fwd.hpp"
 #include <functional>
@@ -92,7 +93,7 @@ void RunTest(Qjs::Runtime &rt) {
 
     global["log"] = Qjs::Value::RawFunction<Log>(ctx, "log");
 
-    auto logfn = (*global["log"]).ToFunction<void, std::string, int>();
+    auto logfn = (*global["log"]).As<std::function<Qjs::JsResult<void> (std::string, int)>>().GetOk();
     logfn("test!", 5);
 
     auto &testMod = ctx.AddModule("#test");
