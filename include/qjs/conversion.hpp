@@ -128,7 +128,7 @@ namespace Qjs {
             return Conversion<T>::Wrap(ctx, *value);
         }
 
-        static JsResult<std::optional<T>> Unwrap(Value const &value) {
+        static JsResult<std::optional<T>> Unwrap(Value value) {
             auto tag = value.value.tag;
             if (value.IsNullish())
                 return std::optional<T>(std::nullopt);
@@ -267,7 +267,7 @@ namespace Qjs {
     struct Conversion<PassJsThis<T>> final {
         static constexpr bool Implemented = true;
 
-        static JsResult<PassJsThis<T>> Unwrap(Value const &value) {
+        static JsResult<PassJsThis<T>> Unwrap(Value value) {
             JsResult<T> result = Conversion<T>::Unwrap(value);
             if (!result.IsOk())
                 return result.GetErr();
