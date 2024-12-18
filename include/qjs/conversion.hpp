@@ -165,7 +165,9 @@ namespace Qjs {
 
             Conversion *conv = Wrapper::Get(funcObj);
 
-            auto args = Value::UnpackArgs<TArgs...>(ctx, argc, argv);
+            Value thisVal = Value(ctx, this_val);
+
+            auto args = Value::UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
             if (!args.IsOk())
                 return args.GetErr().ToUnmanaged();
             
@@ -183,7 +185,7 @@ namespace Qjs {
             return Wrapper::New(ctx, new Conversion {f});
         }
 
-        static JsResult<TFun> Unwrap(Value value) {
+        static JsResult<TFun> Unwrap(Value const &value) {
             Wrapper::RegisterClass(value.ctx, "Function", Invoke);
 
             if (JS_GetClassID(value) == Wrapper::GetClassId(value.ctx.rt))
@@ -205,13 +207,10 @@ namespace Qjs {
             if (cl == nullptr)
                 return Value::Null(ctx);
 
-            if (cl->jsThis)
-                return *cl->jsThis;
-
             return Wrapper::New(ctx, cl);
         }
 
-        static JsResult<T *> Unwrap(Value value) {
+        static JsResult<T *> Unwrap(Value const &value) {
             if (value.IsNullish())
                 return nullptr;
 
@@ -219,7 +218,6 @@ namespace Qjs {
                 return Value::ThrowTypeError(value.ctx, std::format("Expected {}", NameOf<T>()));
 
             T *out = Wrapper::Get(value);
-            out->jsThis = value;
             return out;
         }
     };
@@ -231,18 +229,14 @@ namespace Qjs {
         using Wrapper = ClassWrapper<T>;
 
         static Value Wrap(Context &ctx, RequireNonNull<T> cl) {
-            if (cl->jsThis)
-                return *cl->jsThis;
-
             return Wrapper::New(ctx, cl);
         }
 
-        static JsResult<RequireNonNull<T>> Unwrap(Value value) {
+        static JsResult<RequireNonNull<T>> Unwrap(Value const &value) {
             if (!Wrapper::IsThis(value))
                 return Value::ThrowTypeError(value.ctx, std::format("Expected {}", NameOf<T>()));
 
             T *out = Wrapper::Get(value);
-            out->jsThis = value;
             return RequireNonNull<T>(out);
         }
     };
@@ -258,7 +252,7 @@ namespace Qjs {
             return Conversion<RequireNonNull<T>>::Wrap(ctx, RequireNonNull<T>(new T(cl)));
         }
 
-        static JsResult<T> Unwrap(Value value) {
+        static JsResult<T> Unwrap(Value const &value) {
             auto res = Conversion<RequireNonNull<T>>::Unwrap(value);
             if (!res.IsOk())
                 return res.GetErr();
@@ -278,7 +272,7 @@ namespace Qjs {
             return arr;
         }
 
-        static JsResult<std::vector<T>> Unwrap(Value value) {
+        static JsResult<std::vector<T>> Unwrap(Value &value) {
             auto lenRes = (*value["length"]).As<size_t>();
             if (!lenRes.IsOk())
                 return lenRes.GetErr();
@@ -310,7 +304,7 @@ namespace Qjs {
             return arr;
         }
 
-        static JsResult<std::array<T, TLen>> Unwrap(Value value) {
+        static JsResult<std::array<T, TLen>> Unwrap(Value &value) {
             auto lenRes = (*value["length"]).As<size_t>();
             if (!lenRes.IsOk())
                 return lenRes.GetErr();

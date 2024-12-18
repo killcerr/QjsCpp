@@ -39,5 +39,9 @@ namespace Qjs {
         void SetModuleLoaderFunc() {
             JS_SetModuleLoaderFunc(rt, Normalize<TNromalize>, Load<TLoad>, nullptr);
         }
+
+        void Gc() {
+            JS_RunGC(rt);
+        }
     };
 }

@@ -3,7 +3,9 @@
 #include "qjs/classbuilder.hpp"
 #include "qjs/context_fwd.hpp"
 #include "qjs/conversion.hpp"
+#include "qjs/runtime_fwd.hpp"
 #include "qjs/value_fwd.hpp"
+#include "quickjs.h"
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -18,8 +20,11 @@ struct Test : public Qjs::Class {
     float const y;
 
     Test(int x, float y) : x(x), y(y) {}
+    ~Test() {
+        std::println(std::cerr, "destruction");
+    }
 
-    void wawa(std::string s) {
+    void wawa(Qjs::Value jsThis, std::string s) {
         std::println(std::cerr, "{}: {}, {}", s, x, y);
     }
 };
@@ -71,9 +76,7 @@ std::optional<std::string> Load(Qjs::Context &ctx, std::string requested) {
     return std::nullopt;
 }
 
-int main(int argc, char **argv) {
-    Qjs::Runtime rt;
-    rt.SetModuleLoaderFunc<Normalize, Load>();
+void RunTest(Qjs::Runtime &rt) {
     Qjs::Context ctx {rt};
     auto global = Qjs::Value::Global(ctx);
 
@@ -98,6 +101,15 @@ int main(int argc, char **argv) {
     auto result = ctx.Eval(Src, "src.js");
     if (result.IsException())
         std::println(std::cerr, "{}", ctx.Eval(Src, "src.js").ExceptionMessage());
+}
+
+int main(int argc, char **argv) {
+    Qjs::Runtime rt {true};
+    rt.SetModuleLoaderFunc<Normalize, Load>();
+    std::println(std::cerr, "test 2 begin");
+    RunTest(rt);
+    std::println(std::cerr, "test 2 begin");
+    RunTest(rt);
 
     return 0;
 }

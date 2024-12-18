@@ -158,7 +158,8 @@ namespace Qjs {
 
         private:
         template <typename ...TArgs, std::size_t... TIndices>
-        static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, int argc, JSValue *argv, std::index_sequence<TIndices...>) {
+            requires (Conversion<TArgs>::Implemented,...)
+        static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv, std::index_sequence<TIndices...>) {
             std::array<Value, sizeof...(TArgs)> rawArgs {(Unit<TArgs>(Value::Undefined(ctx)))...};
             for (size_t i = 0; i < std::min(sizeof...(TArgs), size_t(argc)); i++)
                 rawArgs[i] = Value(ctx, argv[i]);
@@ -172,9 +173,27 @@ namespace Qjs {
 
         public:
         template <typename ...TArgs>
-        static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, int argc, JSValue *argv) {
-            return UnpackArgs<TArgs...>(ctx, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
-        }
+        struct UnpackWrapper;
+
+        template <typename ...TArgs>
+            requires (Conversion<TArgs>::Implemented,...)
+        struct UnpackWrapper<TArgs...> {
+            static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
+                return Value::UnpackArgs<TArgs...>(ctx, thisVal, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
+            }
+        };
+
+        template <typename ...TArgs>
+            requires ((Conversion<TArgs>::Implemented,...))
+        struct UnpackWrapper<Value, TArgs...> {
+            static JsResult<std::tuple<Value, TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
+                auto result = Value::UnpackArgs<TArgs...>(ctx, thisVal, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
+                if (!result.IsOk())
+                    return result.GetErr();
+
+                return std::tuple_cat(std::tuple<Value> {thisVal}, result.GetOk());
+            }
+        };
 
         private:
         template <auto TFun>
@@ -192,7 +211,7 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
@@ -220,7 +239,7 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
@@ -248,7 +267,7 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
@@ -283,7 +302,7 @@ namespace Qjs {
 
                 Value thisVal {ctx, this_val};
                 
-                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
+                JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
                 if (!optArgs.IsOk())
                     return optArgs.GetErr().ToUnmanaged();
@@ -457,7 +476,7 @@ namespace Qjs {
         }
 
         /// Creates an unmanaged value. It's up to you to manage the lifetime.
-        JSValue ToUnmanaged() {
+        JSValue ToUnmanaged() const {
             return JS_DupValue(ctx, value);
         }
     };

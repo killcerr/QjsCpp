@@ -39,10 +39,6 @@ namespace Qjs {
 
                 for (Value T::*member : markOffsets)
                     JS_MarkValue(rt, (*ptr.*member).value, mark_func);
-                
-                if constexpr (std::is_base_of_v<Class, T>)
-                    if (ptr->jsThis)
-                        JS_MarkValue(rt, ptr->jsThis->value, mark_func);
             };
 
             JSClassDef def{
@@ -75,8 +71,8 @@ namespace Qjs {
             return val;
         }
 
-        static bool IsThis(Value value);
+        static bool IsThis(Value const &value);
 
-        static T *Get(Value value);
+        static T *Get(Value const &value);
     };
 }

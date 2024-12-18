@@ -36,7 +36,7 @@ namespace Qjs {
 
             Value thisVal {ctx, this_val};
             
-            JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = Value::UnpackArgs<std::decay_t<TArgs>...>(ctx, argc, argv);
+            JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = Value::UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
 
             if (!optArgs.IsOk())
                 return optArgs.GetErr().ToUnmanaged();
