@@ -267,6 +267,10 @@ namespace Qjs {
     struct Conversion<PassJsThis<T>> final {
         static constexpr bool Implemented = true;
 
+        static Value Wrap(Context &ctx, PassJsThis<T> const &value) {
+            return value.jsThis;
+        }
+
         static JsResult<PassJsThis<T>> Unwrap(Value value) {
             JsResult<T> result = Conversion<T>::Unwrap(value);
             if (!result.IsOk())
