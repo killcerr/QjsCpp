@@ -1,6 +1,7 @@
 #pragma once
 
 #include "conversion_fwd.hpp"
+#include "qjs/result_fwd.hpp"
 #include "value_fwd.hpp"
 #include "qjs/classwrapper_fwd.hpp"
 #include "functionwrapper_fwd.hpp"
@@ -28,6 +29,20 @@ namespace Qjs {
     struct UnpackWrapper<TArgs...> {
         static JsResult<std::tuple<TArgs...>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
             return UnpackArgsImpl<TArgs...>(ctx, thisVal, argc, argv, std::make_index_sequence<sizeof...(TArgs)>());
+        }
+    };
+
+    template <>
+    struct UnpackWrapper<> {
+        static JsResult<std::tuple<>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
+            return std::tuple<>();
+        }
+    };
+
+    template <>
+    struct UnpackWrapper<Value> {
+        static JsResult<std::tuple<Value>> UnpackArgs(Context &ctx, Value thisVal, int argc, JSValue *argv) {
+            return std::tuple<Value>(thisVal);
         }
     };
 
