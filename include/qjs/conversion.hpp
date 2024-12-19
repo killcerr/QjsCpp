@@ -4,6 +4,7 @@
 #include "qjs/context_fwd.hpp"
 #include "qjs/function.hpp"
 #include "qjs/functionwrapper_fwd.hpp"
+#include "qjs/object.hpp"
 #include "qjs/result_fwd.hpp"
 #include "qjs/util.hpp"
 #include "quickjs.h"
@@ -56,11 +57,11 @@ namespace Qjs {
         Value jsThis;
         T value;
 
-        operator T () const {
+        operator T & () const {
             return value;
         }
 
-        T operator * () const {
+        T &operator * () const {
             return value;
         }
 
@@ -153,6 +154,22 @@ namespace Qjs {
 
         static JsResult<bool> Unwrap(Value const &value) {
             return JS_ToBool(value.ctx, value);
+        }
+    };
+
+    template <>
+    struct Conversion<Object> final {
+        static constexpr bool Implemented = true;
+
+        static Value Wrap(Context &ctx, Object value) {
+            return value;
+        }
+
+        static JsResult<Object> Unwrap(Value const &value) {
+            if (!JS_IsObject(value))
+                return Value::ThrowTypeError(value.ctx, "Expected object");
+
+            return Object(value);
         }
     };
 
