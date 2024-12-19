@@ -19,3 +19,4 @@
 #include "qjs/util.hpp" // IWYU pragma: export
 #include "qjs/functionwrapper.hpp" // IWYU pragma: export
 #include "qjs/result.hpp" // IWYU pragma: export
+#include "qjs/function.hpp" // IWYU pragma: export
