@@ -141,6 +141,8 @@ namespace Qjs {
         template <auto TField>
         ClassBuilder &Getter(std::string &&name) {
             prototype.AddGetter<TField>(ctx, std::move(name));
+
+            return *this;
         }
 
         template <auto TFun>
@@ -201,6 +203,8 @@ namespace Qjs {
         template <auto TField>
         ClassBuilder &Getter(std::string &&name) {
             prototype.AddGetter<TField>(ctx, std::move(name));
+
+            return *this;
         }
 
         template <auto TFun>
