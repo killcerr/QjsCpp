@@ -9,11 +9,23 @@ namespace Qjs {
             return value;
         }
 
+        operator Value const & () const {
+            return value;
+        }
+
         Value &operator * () {
             return value;
         }
 
+        Value const &operator * () const {
+            return value;
+        }
+
         Value *operator -> () {
+            return &value;
+        }
+
+        Value const *operator -> () const {
             return &value;
         }
     };

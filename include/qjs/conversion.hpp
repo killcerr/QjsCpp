@@ -57,11 +57,23 @@ namespace Qjs {
         Value jsThis;
         T value;
 
-        operator T & () const {
+        operator T & () {
             return value;
         }
 
-        T &operator * () const {
+        T &operator * () {
+            return value;
+        }
+
+        T *operator -> () {
+            return &value;
+        }
+
+        operator T const & () const {
+            return value;
+        }
+
+        T const &operator * () const {
             return value;
         }
 
