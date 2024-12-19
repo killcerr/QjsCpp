@@ -87,34 +87,6 @@ namespace Qjs {
         }
     };
 
-    template <typename TReturn, typename ...TArgs, std::function<TReturn (TArgs...)> TFun>
-    struct FunctionWrapper<TFun> {
-        static constexpr size_t ArgCount = sizeof...(TArgs);
-
-        static JSValue Invoke(JSContext *__ctx, JSValue this_val, int argc, JSValue *argv) {
-            auto _ctx = Context::From(__ctx);
-            if (!_ctx)
-                return JS_ThrowPlainError(__ctx, "Whar");
-            auto &ctx = *_ctx;
-
-            Value thisVal {ctx, this_val};
-            
-            JsResult<std::tuple<std::decay_t<TArgs>...>> optArgs = UnpackWrapper<std::decay_t<TArgs>...>::UnpackArgs(ctx, thisVal, argc, argv);
-
-            if (!optArgs.IsOk())
-                return optArgs.GetErr().ToUnmanaged();
-
-            std::tuple<std::decay_t<TArgs>...> args = optArgs.GetOk();
-
-            if constexpr (std::is_same_v<TReturn, void>) {
-                std::apply(TFun, args);
-                return Value::Undefined(ctx).ToUnmanaged();
-            } else {
-                return Value::From(ctx, std::apply(TFun, args)).ToUnmanaged();
-            }
-        }
-    };
-
     template <typename TReturn, typename TThis, typename ...TArgs, TReturn (TThis::*TFun)(TArgs...)>
     struct FunctionWrapper<TFun> {
         static constexpr size_t ArgCount = sizeof...(TArgs);

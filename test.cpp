@@ -8,7 +8,6 @@
 #include "qjs/result_fwd.hpp"
 #include "qjs/runtime_fwd.hpp"
 #include "qjs/value_fwd.hpp"
-#include <functional>
 #include <iostream>
 #include <optional>
 #include <ostream>
