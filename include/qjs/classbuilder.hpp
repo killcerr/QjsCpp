@@ -115,6 +115,7 @@ namespace Qjs {
         ClassBuilder &NoCtor() {
             ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, CtorHelper<T>::NoCtorInvoke, Name.c_str(), 0, JS_CFUNC_constructor, 0));
             JS_SetConstructor(ctx, ctor, prototype);
+            JS_PreventExtensions(ctx, ctor);
             return *this;
         }
 
@@ -178,6 +179,7 @@ namespace Qjs {
             ClassWrapper<T>::SetProto(prototype);
             ctor = Value::CreateFree(ctx, JS_NewCFunction2(ctx, CtorHelper<T>::NoCtorInvoke, Name.c_str(), 0, JS_CFUNC_constructor, 0));
             JS_SetConstructor(ctx, ctor, prototype);
+            JS_PreventExtensions(ctx, ctor);
         }
 
         private:
