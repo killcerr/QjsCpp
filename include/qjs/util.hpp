@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <typeinfo>
 
 #ifndef _WIN32
 #include <cxxabi.h>
